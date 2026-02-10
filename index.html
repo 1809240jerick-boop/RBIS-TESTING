@@ -1,25 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d6efd">
-<link rel="apple-touch-icon" href="icon.png">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('PWA Active: ', reg.scope))
-        .catch(err => console.error('PWA Error: ', err));
-    });
-  }
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RBI Management System 2026 (Disk Mode)</title>
+    <title>RBI Management System 2026 (Final)</title>
+    <meta name="theme-color" content="#0d6efd">
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+
     <style>
     :root {
         --sidebar-bg: #111827;
@@ -35,7 +27,6 @@
         --accent-red: #dc2626;
         --accent-cyan: #0891b2;
         --accent-purple: #7c3aed;
-        --accent-pink: #db2777;
         --accent-indigo: #4f46e5;
         --border-color: #e5e7eb;
         --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
@@ -80,14 +71,13 @@
     .stat-danger .stat-icon { background: rgba(220,38,38,0.1); color: var(--accent-red); }
     .stat-info::before { background: var(--accent-cyan); }
     .stat-info .stat-icon { background: rgba(8,145,178,0.1); color: var(--accent-cyan); }
-    .stat-purple::before { background: var(--accent-purple); }
-    .stat-purple .stat-icon { background: rgba(124,58,237,0.1); color: var(--accent-purple); }
+    .stat-indigo::before { background: var(--accent-indigo); }
+    .stat-indigo .stat-icon { background: rgba(79, 70, 229, 0.1); color: var(--accent-indigo); }
     .mini-stat { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; cursor: pointer; transition: all 0.2s ease; text-align: center; }
     .mini-stat:hover { border-color: var(--accent-blue); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
     .mini-stat .mini-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
     .mini-stat .mini-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.35rem; font-weight: 800; color: var(--text-primary); }
     .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #111827 100%); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; color: white; }
-    .overlay::before { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
     .login-box { background: rgba(30,41,59,0.8); backdrop-filter: blur(20px); padding: 44px 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 25px 50px rgba(0,0,0,0.3); width: 420px; text-align: center; position: relative; z-index: 1; }
     .login-box h3 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
     .login-box .form-control { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 10px; padding: 12px 16px; }
@@ -152,19 +142,13 @@
     .anim-d1 { animation-delay: 0.05s; }
     .anim-d2 { animation-delay: 0.1s; }
     .anim-d3 { animation-delay: 0.15s; }
+    .anim-d4 { animation-delay: 0.2s; }
     .bulk-formb-preview { max-height: 500px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; background: #f9fafb; }
     .bulk-formb-item { display: flex; align-items: center; padding: 8px 12px; background: white; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 6px; }
     .bulk-formb-item .formb-num { width: 40px; height: 40px; background: var(--accent-blue); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; margin-right: 12px; }
     .bulk-formb-item .formb-info { flex: 1; }
     .bulk-formb-item .formb-name { font-weight: 600; font-size: 0.9rem; }
     .bulk-formb-item .formb-meta { font-size: 0.75rem; color: var(--text-secondary); }
-    
-    /* DISK MODE STYLES */
-    .disk-controls { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; background: rgba(0,0,0,0.2); }
-    .disk-btn { width: 100%; text-align: left; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #cbd5e1; margin-bottom: 6px; transition: all 0.2s; }
-    .disk-btn:hover { background: rgba(255,255,255,0.05); color: white; border-color: rgba(255,255,255,0.2); }
-    .disk-btn i { width: 20px; text-align: center; margin-right: 8px; }
-    .disk-status { font-size: 0.65rem; color: rgba(255,255,255,0.4); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -198,14 +182,6 @@
             <h4><i class="fas fa-users-cog" style="color:#60a5fa;"></i> RBI System</h4>
             <small>Brgy. Data Management</small>
         </div>
-        
-        <div class="disk-controls">
-            <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,0.3); margin-bottom:8px; font-weight:700;">Disk Storage Mode</div>
-            <button class="disk-btn" onclick="openDatabaseFile()"><i class="fas fa-folder-open" style="color:#fcd34d;"></i> Open Database</button>
-            <button class="disk-btn" onclick="saveDatabaseFile()"><i class="fas fa-save" style="color:#4ade80;"></i> Save Changes</button>
-            <button class="disk-btn" onclick="saveAsNewFile()"><i class="fas fa-file-export" style="color:#60a5fa;"></i> Save As New...</button>
-            <div id="file-status" class="disk-status"><i class="fas fa-circle" style="font-size:6px; color:#ef4444; margin-right:4px;"></i> No File Loaded</div>
-        </div>
         <span class="nav-label">Main</span>
         <a href="#" onclick="showHome()" class="nav-link active"><i class="fas fa-th-large me-1"></i> Dashboard</a>
         <a href="#" onclick="showAdd()" class="nav-link"><i class="fas fa-user-plus me-1"></i> Add Resident</a>
@@ -222,7 +198,7 @@
     <div class="content" id="main-container">
         <div id="section-home">
             <div class="page-title">Dashboard Overview</div>
-            <div class="page-subtitle">Real-time barangay population summary</div>
+            <div class="page-subtitle">Real-time barangay population summary (IndexedDB Powered)</div>
             <div class="row g-3 mb-4">
                 <div class="col-md-3 anim-in">
                     <div class="stat-card stat-primary" onclick="printStatCategory('total')" title="Click to print all residents">
@@ -249,21 +225,22 @@
                     </div>
                 </div>
                 <div class="col-md-3 anim-in anim-d3">
-                    <div class="stat-card stat-warning" onclick="printStatCategory('seniors')" title="Click to print seniors 60+">
-                        <div class="stat-icon"><i class="fas fa-person-cane"></i></div>
-                        <div class="stat-label">Seniors (60+)</div>
-                        <div class="stat-value" id="rep-senior">0</div>
+                    <div class="stat-card stat-indigo" onclick="printStatCategory('voters')" title="Click to print voters">
+                        <div class="stat-icon"><i class="fas fa-vote-yea"></i></div>
+                        <div class="stat-label">Registered Voters</div>
+                        <div class="stat-value" id="rep-voters">0</div>
                         <div class="print-hint"><i class="fas fa-print"></i> Click to print</div>
                     </div>
                 </div>
             </div>
             <div class="row g-3 mb-4">
+                <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('seniors')" title="Print Seniors"><div class="mini-label">Seniors (60+)</div><div class="mini-value" id="rep-senior">0</div></div></div>
                 <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('male')" title="Print Males"><div class="mini-label">Male</div><div class="mini-value" id="rep-male">0</div></div></div>
                 <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('female')" title="Print Females"><div class="mini-label">Female</div><div class="mini-value" id="rep-female">0</div></div></div>
                 <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('children')" title="Print Children"><div class="mini-label">Children</div><div class="mini-value" id="rep-child">0</div></div></div>
                 <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('adults')" title="Print Adults"><div class="mini-label">Adults</div><div class="mini-value" id="rep-adult">0</div></div></div>
                 <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('pwd')" title="Print PWD"><div class="mini-label">PWD</div><div class="mini-value" id="rep-pwd">0</div></div></div>
-                <div class="col-md-2 col-6"><div class="mini-stat" onclick="printStatCategory('solo')" title="Print Solo Parents"><div class="mini-label">Solo Parent</div><div class="mini-value" id="rep-solo">0</div></div></div>
+                <div class="col-md-2 col-6 mt-2"><div class="mini-stat" onclick="printStatCategory('solo')" title="Print Solo Parents"><div class="mini-label">Solo Parent</div><div class="mini-value" id="rep-solo">0</div></div></div>
                 <div class="col-md-2 col-6 mt-2"><div class="mini-stat" onclick="printStatCategory('osy')" title="Print OSY"><div class="mini-label">OSY (15-24)</div><div class="mini-value" id="rep-osy">0</div></div></div>
             </div>
             <div class="section-bar">
@@ -312,6 +289,7 @@
                         </div>
                     </div>
                     <div class="col-md-12 mt-4"><h5 class="text-primary border-bottom pb-2" style="font-family:'Plus Jakarta Sans'; font-weight:700;">II. Special Categories & Status</h5></div>
+                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="f-voter"><label class="form-check-label fw-bold" style="color:var(--accent-indigo);">Registered Voter</label></div></div>
                     <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="f-solo"><label class="form-check-label">Solo Parent</label></div></div>
                     <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="f-pwd"><label class="form-check-label">Person with Disability (PWD)</label></div></div>
                     <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="f-ofw"><label class="form-check-label">OFW</label></div></div>
@@ -498,6 +476,17 @@
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-primary" onclick="executePrintCategory()"><i class="fas fa-print me-1"></i> Print This Page (100 max)</button></div>
     </div></div></div>
 
+    <div class="modal fade" id="custom-alert-modal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content text-center p-3">
+                <div class="mb-2"><i class="fas fa-info-circle fa-2x text-primary"></i></div>
+                <h6 class="fw-bold mb-2" id="custom-alert-title">System Alert</h6>
+                <p class="small text-muted mb-3" id="custom-alert-msg"></p>
+                <button type="button" class="btn btn-sm btn-primary w-100" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modal-bulk-formb" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-file-alt me-2" style="color:var(--accent-green);"></i>Bulk Print RBI Form B</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -515,11 +504,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- GLOBAL STATE & DISK I/O VARIABLES ---
-        let fileHandle = null; // Store the file reference
-        let db = []; // START EMPTY - LOADED FROM FILE
+        // --- GLOBAL STATE & DATABASE ---
+        // Initialize Dexie Database
+        const iDB = new Dexie('RBI_DB_2026');
+        iDB.version(1).stores({
+            residents: 'id, last, hh_name',
+            households: 'name'
+        });
+
+        // In-Memory arrays for synchronous UI operations
+        let db = [];
         let household_db = [];
-        let settings = { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
+        let settings = JSON.parse(localStorage.getItem('rbi_settings')) || { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
         
         let stagingValid = [], stagingInvalid = [], stagingDup = [];
         let printCatData = [], printCatPage = 0, printCatLabel = '';
@@ -527,86 +523,6 @@
         let hhPage = 0, hhPerPage = 10, hhFiltered = [];
         let deathPage = 0, deathPerPage = 10;
         let bulkFormBData = [], bulkFormBPage = 0, bulkFormBPerPage = 200;
-
-        // --- DISK STORAGE FUNCTIONS ---
-        async function openDatabaseFile() {
-            try {
-                // Open file picker
-                [fileHandle] = await window.showOpenFilePicker({
-                    types: [{ description: 'RBI Database File', accept: { 'application/json': ['.json'] } }],
-                });
-                
-                // Read and Parse
-                const file = await fileHandle.getFile();
-                const text = await file.text();
-                const data = JSON.parse(text);
-                
-                // Load Memory
-                db = data.db || [];
-                household_db = data.household_db || [];
-                settings = data.settings || settings;
-                
-                // UI Updates
-                document.getElementById('file-status').innerHTML = `<i class="fas fa-circle" style="font-size:6px; color:#4ade80; margin-right:4px;"></i> ${file.name}`;
-                updateReportUI();
-                renderList();
-                showHome();
-                alert(`Loaded ${db.length} residents successfully.`);
-            } catch (err) {
-                console.error(err);
-                if(err.name !== 'AbortError') alert("Error opening file: " + err.message);
-            }
-        }
-
-        async function saveDatabaseFile() {
-            if (!fileHandle) { return saveAsNewFile(); } // Redirect to Save As if no file open
-            try {
-                // Create writable stream
-                const writable = await fileHandle.createWritable();
-                const fullData = { metadata: "RBI System 2026", last_saved: new Date().toISOString(), settings: settings, household_db: household_db, db: db };
-                await writable.write(JSON.stringify(fullData));
-                await writable.close();
-                alert("✅ Changes saved to Disk!");
-            } catch (err) {
-                console.error(err);
-                alert("Error saving: " + err.message);
-            }
-        }
-
-        async function saveAsNewFile() {
-            try {
-                const options = { suggestedName: 'RBI_Database.json', types: [{ description: 'RBI Database File', accept: { 'application/json': ['.json'] } }] };
-                fileHandle = await window.showSaveFilePicker(options);
-                
-                // Update UI status immediately
-                const file = await fileHandle.getFile();
-                document.getElementById('file-status').innerHTML = `<i class="fas fa-circle" style="font-size:6px; color:#4ade80; margin-right:4px;"></i> ${file.name}`;
-                
-                // Save immediately
-                await saveDatabaseFile();
-            } catch (err) {
-                // Cancelled
-            }
-        }
-
-        // MODIFYING saveDB TO TRIGGER SAVE IF FILE OPEN
-        function saveDB() {
-            // We update memory immediately (done in callers), but we try to persist to disk if possible
-            if(fileHandle) {
-                // Optional: Auto-save or just rely on manual save. 
-                // For reliability with large files, let's keep it manual or notify user to save.
-                // Or better yet, call saveDatabaseFile() but handle the async nature.
-                // For now, we will just keep data in memory variables and user must click "Save Changes"
-                // to avoid permission prompt spam, OR use the button. 
-                // A better UX for "Save Record" button:
-                saveDatabaseFile();
-            } else {
-               // No file open, data is just in RAM.
-               // We don't use localStorage anymore to avoid limits.
-               alert("⚠️ Record stored in RAM only. Please click 'Save As New' or 'Open Database' to persist data to disk.");
-            }
-            updateReportUI();
-        }
 
         // Debounce function (400ms delay)
         function debounce(func, wait) {
@@ -623,16 +539,46 @@
         const debouncedFilterHHList = debounce(() => { hhPage = 0; renderHHList(); }, 400);
         const debouncedSearchMemForHH = debounce(() => searchMemForHH(), 400);
 
-        document.addEventListener("DOMContentLoaded", () => {
-            // INITIALIZATION: Start empty, waiting for file load.
-            updateServerTime(); 
-            renderList();
-            
-            // NOTE: Removed localStorage loading logic.
-            // If settings were loaded (empty default), check password state
+        // Custom Alert Wrapper
+        function showSystemAlert(message, title = "System Notification") {
+            document.getElementById('custom-alert-msg').innerText = message;
+            document.getElementById('custom-alert-title').innerText = title;
+            new bootstrap.Modal(document.getElementById('custom-alert-modal')).show();
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Check if we need to migrate from Old LocalStorage
+            const oldDB = localStorage.getItem('rbi_db');
+            const oldHH = localStorage.getItem('rbi_hh_db');
+
+            if (oldDB) {
+                console.log("Migrating Residents...");
+                try {
+                    await iDB.residents.bulkPut(JSON.parse(oldDB));
+                    localStorage.removeItem('rbi_db');
+                } catch(e) { console.error("Migration Error", e); }
+            }
+            if (oldHH) {
+                console.log("Migrating Households...");
+                try {
+                    await iDB.households.bulkPut(JSON.parse(oldHH));
+                    localStorage.removeItem('rbi_hh_db');
+                } catch(e) { console.error("Migration Error", e); }
+            }
+
+            // Load Data into Memory
+            await refreshData();
+
             if(settings.user_password) { document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); }
             else { document.getElementById('login-phase-1').classList.remove('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); }
+            updateServerTime(); renderList();
         });
+
+        async function refreshData() {
+            db = await iDB.residents.toArray();
+            household_db = await iDB.households.toArray();
+            updateReportUI();
+        }
 
         // --- SECURITY ---
         function updateServerTime() { const now = new Date(); document.getElementById('server-time-display').innerText = `System Time: ${now.toLocaleString()}`; }
@@ -645,20 +591,20 @@
             const ampm = hours >= 12 ? 'mp' : 'ma'; const hourLetter = String.fromCharCode(97 + hours);
             const code = `RBI-${month}${day}${year}${week}${dayLetter}${ampm}${hourLetter}`;
             if(input === code) { document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.remove('d-none'); }
-            else { alert("Incorrect Access Code."); }
+            else { showSystemAlert("Incorrect Access Code."); }
         }
         function setCustomPassword() {
             const p1 = document.getElementById('new-custom-pass').value; const p2 = document.getElementById('confirm-custom-pass').value;
-            if(!p1 || p1 !== p2) return alert("Passwords do not match or are empty.");
-            settings.user_password = p1; // Saved to memory, will be saved to disk on next save
-            alert("Password set successfully! Don't forget to SAVE CHANGES to disk."); document.getElementById('security-overlay').classList.add('d-none');
+            if(!p1 || p1 !== p2) return showSystemAlert("Passwords do not match or are empty.");
+            settings.user_password = p1; localStorage.setItem('rbi_settings', JSON.stringify(settings));
+            showSystemAlert("Password set successfully!"); document.getElementById('security-overlay').classList.add('d-none');
         }
         function verifyCustomPassword() {
             const input = document.getElementById('input-custom-pass').value;
             if(input === settings.user_password) { document.getElementById('security-overlay').classList.add('d-none'); document.getElementById('main-container').classList.remove('d-none'); document.querySelector('.sidebar').style.display = 'block'; }
-            else { alert("Incorrect Password."); }
+            else { showSystemAlert("Incorrect Password."); }
         }
-        function forgotPassword() { document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); document.getElementById('login-phase-1').classList.remove('d-none'); alert("Please enter the Dynamic Access Code to reset your password."); }
+        function forgotPassword() { document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); document.getElementById('login-phase-1').classList.remove('d-none'); showSystemAlert("Please enter the Dynamic Access Code to reset your password."); }
         function logout() { document.getElementById('main-container').classList.add('d-none'); document.querySelector('.sidebar').style.display = 'none'; document.getElementById('security-overlay').classList.remove('d-none'); document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); document.getElementById('input-custom-pass').value = ''; }
 
         // --- CORE ---
@@ -674,24 +620,31 @@
         function getFormCBracket(bdate) { const age = calculateAgeDetailed(bdate); const y = age.y; if (y < 5) return 'Under 5 years old'; if (y >= 5 && y <= 9) return '5-9 years old'; if (y >= 10 && y <= 14) return '10-14 years old'; if (y >= 15 && y <= 19) return '15-19 years old'; if (y >= 20 && y <= 24) return '20-24 years old'; if (y >= 25 && y <= 29) return '25-29 years old'; if (y >= 30 && y <= 34) return '30-34 years old'; if (y >= 35 && y <= 39) return '35-39 years old'; if (y >= 40 && y <= 44) return '40-44 years old'; if (y >= 45 && y <= 49) return '45-49 years old'; if (y >= 50 && y <= 54) return '50-54 years old'; if (y >= 55 && y <= 59) return '55-59 years old'; if (y >= 60 && y <= 64) return '60-64 years old'; if (y >= 65 && y <= 69) return '65-69 years old'; if (y >= 70 && y <= 74) return '70-74 years old'; if (y >= 75 && y <= 79) return '75-79 years old'; if (y >= 80) return '80 years old and over'; return 'UNKNOWN'; }
         function searchMother(val) { const list = document.getElementById('mother-search-results'); if(!val || val.length < 2) { list.classList.add('d-none'); return; } const matches = db.filter(r => r.sex === 'FEMALE' && !r.isDead && (r.last + ' ' + r.first).toLowerCase().includes(val.toLowerCase())); list.innerHTML = ''; if(matches.length > 0) { matches.forEach(m => { const div = document.createElement('div'); div.className = 'search-item'; div.innerHTML = `<strong>${m.last}, ${m.first}</strong> <small>(${m.middle||'-'})</small>`; div.onclick = () => { document.getElementById('f-m-last').value = m.last; document.getElementById('f-m-first').value = m.first; document.getElementById('f-m-middle').value = m.middle; document.getElementById('mother-search-input').value = ''; list.classList.add('d-none'); }; list.appendChild(div); }); list.classList.remove('d-none'); } else { list.classList.add('d-none'); } }
 
-        function saveRecord() {
+        async function saveRecord() {
             const id = document.getElementById('rec-id').value; const last = document.getElementById('f-last').value; const first = document.getElementById('f-first').value; const bdate = document.getElementById('f-bdate').value;
-            if(!last || !first || !bdate) return alert('Last Name, First Name, and Birthdate are required.');
-            if(!id) { const exists = db.some(x => x.last.toLowerCase() === last.toLowerCase() && x.first.toLowerCase() === first.toLowerCase() && x.bdate === bdate); if(exists) return alert('Resident already exists!'); }
+            if(!last || !first || !bdate) return showSystemAlert('Last Name, First Name, and Birthdate are required.');
+            if(!id) { const exists = db.some(x => x.last.toLowerCase() === last.toLowerCase() && x.first.toLowerCase() === first.toLowerCase() && x.bdate === bdate); if(exists) return showSystemAlert('Resident already exists!'); }
             const currentRec = id ? db.find(x=>x.id===id) : null;
-            const record = { id: id || Date.now().toString(), type: document.getElementById('f-type').value, last: last, first: first, middle: document.getElementById('f-middle').value, suffix: document.getElementById('f-suffix').value, bdate: bdate, sex: document.getElementById('f-sex').value, civil: document.getElementById('f-civil').value, religion: document.getElementById('f-religion').value, citizen: document.getElementById('f-citizen').value, philsys: document.getElementById('f-philsys').value, bplace: document.getElementById('f-bplace').value, prof: document.getElementById('f-prof').value, mother_last: document.getElementById('f-m-last').value, mother_first: document.getElementById('f-m-first').value, mother_middle: document.getElementById('f-m-middle').value, isSoloParent: document.getElementById('f-solo').checked, isPwd: document.getElementById('f-pwd').checked, isOfw: document.getElementById('f-ofw').checked, isIp: document.getElementById('f-ip').checked, isOsc: document.getElementById('f-osc').checked, isOSY: document.getElementById('f-osy').checked, isUnemployed: document.getElementById('f-unemployed').checked, isDead: document.getElementById('f-dead').checked, deathDate: document.getElementById('f-death-date').value, contact: document.getElementById('f-contact').value, email: document.getElementById('f-email').value, edu: document.getElementById('f-edu').value, address: document.getElementById('f-address').value, hh_name: currentRec ? currentRec.hh_name : '', hh_role: currentRec ? currentRec.hh_role : 'MEMBER' };
-            if(id) { const index = db.findIndex(x => x.id === id); db[index] = record; } else { db.push(record); }
-            saveDB(); 
-            if(record.isDead) showDeaths(); else showHome();
+            const record = { id: id || Date.now().toString(), type: document.getElementById('f-type').value, last: last, first: first, middle: document.getElementById('f-middle').value, suffix: document.getElementById('f-suffix').value, bdate: bdate, sex: document.getElementById('f-sex').value, civil: document.getElementById('f-civil').value, religion: document.getElementById('f-religion').value, citizen: document.getElementById('f-citizen').value, philsys: document.getElementById('f-philsys').value, bplace: document.getElementById('f-bplace').value, prof: document.getElementById('f-prof').value, mother_last: document.getElementById('f-m-last').value, mother_first: document.getElementById('f-m-first').value, mother_middle: document.getElementById('f-m-middle').value, isVoter: document.getElementById('f-voter').checked, isSoloParent: document.getElementById('f-solo').checked, isPwd: document.getElementById('f-pwd').checked, isOfw: document.getElementById('f-ofw').checked, isIp: document.getElementById('f-ip').checked, isOsc: document.getElementById('f-osc').checked, isOSY: document.getElementById('f-osy').checked, isUnemployed: document.getElementById('f-unemployed').checked, isDead: document.getElementById('f-dead').checked, deathDate: document.getElementById('f-death-date').value, contact: document.getElementById('f-contact').value, email: document.getElementById('f-email').value, edu: document.getElementById('f-edu').value, address: document.getElementById('f-address').value, hh_name: currentRec ? currentRec.hh_name : '', hh_role: currentRec ? currentRec.hh_role : 'MEMBER' };
+            
+            await iDB.residents.put(record);
+            await refreshData();
+            
+            showSystemAlert('Saved Successfully!'); if(record.isDead) showDeaths(); else showHome();
         }
 
         function loadRecord(id) {
             const r = db.find(x => x.id === id); if(!r) return; showAdd();
-            document.getElementById('rec-id').value = r.id; document.getElementById('f-type').value = r.type; document.getElementById('f-last').value = r.last; document.getElementById('f-first').value = r.first; document.getElementById('f-middle').value = r.middle; document.getElementById('f-suffix').value = r.suffix; document.getElementById('f-bdate').value = r.bdate; document.getElementById('f-sex').value = r.sex; document.getElementById('f-civil').value = r.civil; document.getElementById('f-religion').value = r.religion || ''; document.getElementById('f-citizen').value = r.citizen || 'FILIPINO'; document.getElementById('f-philsys').value = r.philsys || ''; document.getElementById('f-bplace').value = r.bplace || ''; document.getElementById('f-prof').value = r.prof || ''; document.getElementById('f-m-last').value = r.mother_last || ''; document.getElementById('f-m-first').value = r.mother_first || ''; document.getElementById('f-m-middle').value = r.mother_middle || ''; document.getElementById('f-solo').checked = r.isSoloParent || false; document.getElementById('f-pwd').checked = r.isPwd || false; document.getElementById('f-ofw').checked = r.isOfw || false; document.getElementById('f-ip').checked = r.isIp || false; document.getElementById('f-osc').checked = r.isOsc || false; document.getElementById('f-osy').checked = r.isOSY || false; document.getElementById('f-unemployed').checked = r.isUnemployed || false; document.getElementById('f-dead').checked = r.isDead || false; document.getElementById('f-death-date').value = r.deathDate || ''; toggleDeathInput(); document.getElementById('f-contact').value = r.contact || ''; document.getElementById('f-email').value = r.email || ''; document.getElementById('f-edu').value = r.edu || ''; document.getElementById('f-address').value = r.address || '';
+            document.getElementById('rec-id').value = r.id; document.getElementById('f-type').value = r.type; document.getElementById('f-last').value = r.last; document.getElementById('f-first').value = r.first; document.getElementById('f-middle').value = r.middle; document.getElementById('f-suffix').value = r.suffix; document.getElementById('f-bdate').value = r.bdate; document.getElementById('f-sex').value = r.sex; document.getElementById('f-civil').value = r.civil; document.getElementById('f-religion').value = r.religion || ''; document.getElementById('f-citizen').value = r.citizen || 'FILIPINO'; document.getElementById('f-philsys').value = r.philsys || ''; document.getElementById('f-bplace').value = r.bplace || ''; document.getElementById('f-prof').value = r.prof || ''; document.getElementById('f-m-last').value = r.mother_last || ''; document.getElementById('f-m-first').value = r.mother_first || ''; document.getElementById('f-m-middle').value = r.mother_middle || ''; document.getElementById('f-voter').checked = r.isVoter || false; document.getElementById('f-solo').checked = r.isSoloParent || false; document.getElementById('f-pwd').checked = r.isPwd || false; document.getElementById('f-ofw').checked = r.isOfw || false; document.getElementById('f-ip').checked = r.isIp || false; document.getElementById('f-osc').checked = r.isOsc || false; document.getElementById('f-osy').checked = r.isOSY || false; document.getElementById('f-unemployed').checked = r.isUnemployed || false; document.getElementById('f-dead').checked = r.isDead || false; document.getElementById('f-death-date').value = r.deathDate || ''; toggleDeathInput(); document.getElementById('f-contact').value = r.contact || ''; document.getElementById('f-email').value = r.email || ''; document.getElementById('f-edu').value = r.edu || ''; document.getElementById('f-address').value = r.address || '';
             let hhTxt = r.hh_name ? r.hh_name : 'No Household Assigned'; if(r.hh_name && r.hh_role) hhTxt += ` (${r.hh_role})`; document.getElementById('f-hh-display').innerText = hhTxt; document.getElementById('btn-del').style.display = 'inline-block';
         }
 
-        function deleteRecord() { if(!confirm("Are you sure?")) return; const id = document.getElementById('rec-id').value; db = db.filter(x => x.id !== id); saveDB(); showHome(); }
+        async function deleteRecord() { if(!confirm("Are you sure?")) return; const id = document.getElementById('rec-id').value; 
+            await iDB.residents.delete(id);
+            await refreshData();
+            showHome(); 
+        }
+
         function clearForm() { document.querySelectorAll('#section-add input').forEach(i => i.value = ''); document.querySelectorAll('#section-add select').forEach(s => s.selectedIndex = 0); document.querySelectorAll('#section-add input[type=checkbox]').forEach(c => c.checked = false); document.getElementById('f-citizen').value = 'FILIPINO'; document.getElementById('f-religion').value = ''; document.getElementById('btn-del').style.display = 'none'; document.getElementById('mother-search-results').classList.add('d-none'); toggleDeathInput(); }
         function toggleDeathInput() { const isDead = document.getElementById('f-dead').checked; const container = document.getElementById('death-date-container'); if(isDead) container.classList.remove('d-none'); else { container.classList.add('d-none'); document.getElementById('f-death-date').value = ''; } }
 
@@ -702,7 +655,7 @@
             const totalPages = Math.ceil(residentFiltered.length / residentPerPage); const start = residentPage * residentPerPage; const end = Math.min(start + residentPerPage, residentFiltered.length); const pageData = residentFiltered.slice(start, end);
             if(residentFiltered.length === 0) { list.innerHTML = '<div class="text-center p-4 text-muted">No residents found.</div>'; }
             pageData.forEach(r => { const age = calculateAgeDetailed(r.bdate).y; const item = document.createElement('div'); item.className = 'record-card'; item.onclick = () => loadRecord(r.id);
-                let badges = ''; if(r.isPwd) badges += '<span class="badge bg-danger me-1">PWD</span>'; if(r.isSoloParent) badges += '<span class="badge bg-info text-dark me-1">SOLO</span>'; if(r.isOSY) badges += '<span class="badge bg-secondary me-1">OSY</span>'; if(r.isOfw) badges += '<span class="badge bg-primary me-1">OFW</span>';
+                let badges = ''; if(r.isVoter) badges += '<span class="badge bg-indigo text-white me-1" style="background:#4f46e5;">VOTER</span>'; if(r.isPwd) badges += '<span class="badge bg-danger me-1">PWD</span>'; if(r.isSoloParent) badges += '<span class="badge bg-info text-dark me-1">SOLO</span>'; if(r.isOSY) badges += '<span class="badge bg-secondary me-1">OSY</span>'; if(r.isOfw) badges += '<span class="badge bg-primary me-1">OFW</span>';
                 item.innerHTML = `<div class="d-flex justify-content-between align-items-center"><div><h6 class="fw-bold mb-0" style="font-family:'Plus Jakarta Sans';">${r.last}, ${r.first} ${r.suffix || ''}</h6><small class="text-muted">${r.sex} | ${age} y/o | ${r.civil}</small><br>${r.hh_name ? `<span class="badge" style="background:rgba(37,99,235,0.1); color:var(--accent-blue);"><i class="fas fa-home"></i> ${r.hh_name}</span>` : '<span class="badge" style="background:#f1f5f9; color:#94a3b8;">No HH</span>'} ${badges}</div><div class="no-print"><button class="btn btn-sm btn-outline-dark" onclick="event.stopPropagation(); printFormB('${r.id}')"><i class="fas fa-print"></i> Form B</button></div></div>`;
                 list.appendChild(item); });
             document.getElementById('resident-page-info').innerText = `Page ${residentPage + 1} of ${totalPages || 1} (${residentFiltered.length} total)`;
@@ -737,19 +690,84 @@
         }
         function hhPrevPage() { if(hhPage > 0) { hhPage--; renderHHList(); } }
         function hhNextPage() { if((hhPage + 1) * hhPerPage < hhFiltered.length) { hhPage++; renderHHList(); } }
-        function createHH() { const name = document.getElementById('new-hh-name').value.toUpperCase(); const purok = document.getElementById('new-hh-purok').value.toUpperCase(); const num = document.getElementById('new-hh-num').value.toUpperCase(); if(!name) return alert('Enter Name'); const exists = household_db.some(h => h.name === name); if(!exists) { household_db.push({ name: name, purok: purok, houseNo: num }); saveDB(); } else { alert("Household Name already exists in registry."); return; } const modalEl = document.getElementById('modal-new-hh'); const modal = bootstrap.Modal.getInstance(modalEl); modal.hide(); loadHH(name, purok, num); renderHHList(); }
+        
+        async function createHH() { const name = document.getElementById('new-hh-name').value.toUpperCase(); const purok = document.getElementById('new-hh-purok').value.toUpperCase(); const num = document.getElementById('new-hh-num').value.toUpperCase(); if(!name) return showSystemAlert('Enter Name'); 
+            const exists = household_db.some(h => h.name === name); 
+            if(!exists) { 
+                await iDB.households.put({ name: name, purok: purok, houseNo: num });
+                await refreshData();
+            } else { showSystemAlert("Household Name already exists in registry."); return; } 
+            const modalEl = document.getElementById('modal-new-hh'); const modal = bootstrap.Modal.getInstance(modalEl); modal.hide(); loadHH(name, purok, num); renderHHList(); 
+        }
+
         function loadHH(name, purok, num) { if(!purok || !num) { const meta = household_db.find(h => h.name === name); if(meta) { purok = meta.purok; num = meta.houseNo; } } document.getElementById('manage-hh-name').value = name; document.getElementById('view-hh-title').innerText = name; document.getElementById('view-hh-purok').innerText = purok || 'N/A'; document.getElementById('view-hh-num').innerText = num || 'N/A'; document.getElementById('hh-list-container').style.display = 'none'; document.getElementById('hh-view').style.display = 'flex'; renderHHMembers(name); }
         function showEditHHModal() { const name = document.getElementById('manage-hh-name').value; const meta = household_db.find(h => h.name === name) || { purok: '', houseNo: '' }; document.getElementById('edit-hh-old-name').value = name; document.getElementById('edit-hh-name').value = name; document.getElementById('edit-hh-purok').value = meta.purok; document.getElementById('edit-hh-num').value = meta.houseNo; new bootstrap.Modal(document.getElementById('modal-edit-hh')).show(); }
-        function saveEditedHH() { const oldName = document.getElementById('edit-hh-old-name').value; const newName = document.getElementById('edit-hh-name').value.toUpperCase(); const newPurok = document.getElementById('edit-hh-purok').value.toUpperCase(); const newNum = document.getElementById('edit-hh-num').value.toUpperCase(); if(!newName) return alert("Household Name cannot be empty"); if(oldName !== newName && household_db.some(h => h.name === newName)) { return alert("Household Name already exists. Please choose another."); } let hh = household_db.find(h => h.name === oldName); if(hh) { hh.name = newName; hh.purok = newPurok; hh.houseNo = newNum; } else { household_db.push({ name: newName, purok: newPurok, houseNo: newNum }); } if(oldName !== newName) { db.forEach(r => { if(r.hh_name === oldName) { r.hh_name = newName; } }); } saveDB(); const el = document.getElementById('modal-edit-hh'); const modal = bootstrap.Modal.getInstance(el); if(modal) modal.hide(); loadHH(newName, newPurok, newNum); renderHHList(); alert("Household details updated successfully."); }
-        function deleteHH() { const name = document.getElementById('manage-hh-name').value; if(!confirm(`Are you sure you want to delete the household "${name}"? \n\nNote: Members will NOT be deleted, but they will be unassigned from this household.`)) return; db.forEach(r => { if(r.hh_name === name) { r.hh_name = ''; r.hh_role = ''; } }); household_db = household_db.filter(h => h.name !== name); saveDB(); alert("Household deleted."); document.getElementById('hh-view').style.display='none'; document.getElementById('hh-list-container').style.display='block'; renderHHList(); }
+        
+        async function saveEditedHH() { 
+            const oldName = document.getElementById('edit-hh-old-name').value; 
+            const newName = document.getElementById('edit-hh-name').value.toUpperCase(); 
+            const newPurok = document.getElementById('edit-hh-purok').value.toUpperCase(); 
+            const newNum = document.getElementById('edit-hh-num').value.toUpperCase(); 
+            if(!newName) return showSystemAlert("Household Name cannot be empty"); 
+            
+            // Check collision
+            if(oldName !== newName && household_db.some(h => h.name === newName)) { return showSystemAlert("Household Name already exists. Please choose another."); } 
+            
+            // Update Household DB
+            await iDB.households.put({ name: newName, purok: newPurok, houseNo: newNum });
+            if(oldName !== newName) {
+                await iDB.households.delete(oldName);
+                // Update all residents
+                const residentsToUpdate = db.filter(r => r.hh_name === oldName);
+                if(residentsToUpdate.length > 0) {
+                    residentsToUpdate.forEach(r => r.hh_name = newName);
+                    await iDB.residents.bulkPut(residentsToUpdate);
+                }
+            }
+            await refreshData();
+
+            const el = document.getElementById('modal-edit-hh'); const modal = bootstrap.Modal.getInstance(el); if(modal) modal.hide(); loadHH(newName, newPurok, newNum); renderHHList(); showSystemAlert("Household details updated successfully."); 
+        }
+        
+        async function deleteHH() { 
+            const name = document.getElementById('manage-hh-name').value; 
+            if(!confirm(`Are you sure you want to delete the household "${name}"? \n\nNote: Members will NOT be deleted, but they will be unassigned from this household.`)) return; 
+            
+            // Update residents
+            const residentsToUpdate = db.filter(r => r.hh_name === name);
+            if(residentsToUpdate.length > 0) {
+                residentsToUpdate.forEach(r => { r.hh_name = ''; r.hh_role = ''; });
+                await iDB.residents.bulkPut(residentsToUpdate);
+            }
+            
+            await iDB.households.delete(name);
+            await refreshData();
+
+            showSystemAlert("Household deleted."); document.getElementById('hh-view').style.display='none'; document.getElementById('hh-list-container').style.display='block'; renderHHList(); 
+        }
+
         function renderHHMembers(hhName) { const tbody = document.getElementById('hh-members-body'); tbody.innerHTML = ''; const mems = db.filter(r => r.hh_name === hhName); mems.forEach(m => { tbody.innerHTML += `<tr><td>${m.last}, ${m.first}</td><td><select onchange="updateRole('${m.id}', this.value)" class="form-select form-select-sm"><option value="HEAD" ${m.hh_role==='HEAD'?'selected':''}>HEAD OF FAMILY</option><option value="SPOUSE" ${m.hh_role==='SPOUSE'?'selected':''}>SPOUSE</option><option value="SON" ${m.hh_role==='SON'?'selected':''}>SON</option><option value="DAUGHTER" ${m.hh_role==='DAUGHTER'?'selected':''}>DAUGHTER</option><option value="MEMBER" ${m.hh_role==='MEMBER'?'selected':''}>MEMBER (Other)</option></select></td><td><button class="btn btn-sm btn-danger" onclick="removeFromHH('${m.id}')">Remove</button></td></tr>`; }); }
-        function updateRole(id, role) { const r = db.find(x => x.id === id); if(r) { r.hh_role = role; saveDB(); } }
-        function removeFromHH(id) { const r = db.find(x => x.id === id); if(r) { r.hh_name = ''; r.hh_role = ''; saveDB(); renderHHMembers(document.getElementById('manage-hh-name').value); } }
+        
+        async function updateRole(id, role) { const r = db.find(x => x.id === id); if(r) { r.hh_role = role; await iDB.residents.put(r); await refreshData(); } }
+        async function removeFromHH(id) { const r = db.find(x => x.id === id); if(r) { r.hh_name = ''; r.hh_role = ''; await iDB.residents.put(r); await refreshData(); renderHHMembers(document.getElementById('manage-hh-name').value); } }
+        
         function showAddMemberModal() { new bootstrap.Modal(document.getElementById('modal-add-mem')).show(); }
         function closeModal(id) { const el = document.getElementById(id); const modal = bootstrap.Modal.getInstance(el); if(modal) modal.hide(); }
-        function searchMemForHH() { const q = document.getElementById('search-mem-hh').value.toLowerCase(); const res = document.getElementById('hh-search-results'); res.innerHTML = ''; db.filter(r => !r.hh_name && !r.isDead && (r.last+' '+r.first).toLowerCase().includes(q)).slice(0,10).forEach(r => { res.innerHTML += `<button class="list-group-item list-group-item-action" onclick="promptRole('${r.id}')">${r.last}, ${r.first}</button>`; }); }
+        // FIXED SEARCH MEM FUNCTION: EXCLUDES MEMBERS ALREADY IN A HOUSEHOLD
+        function searchMemForHH() { 
+            const q = document.getElementById('search-mem-hh').value.toLowerCase(); 
+            const res = document.getElementById('hh-search-results'); 
+            res.innerHTML = ''; 
+            
+            // Only show if user has NO household assigned (hh_name is empty or null)
+            db.filter(r => (!r.hh_name || r.hh_name.trim() === '') && !r.isDead && (r.last+' '+r.first).toLowerCase().includes(q))
+              .slice(0,10)
+              .forEach(r => { 
+                res.innerHTML += `<button class="list-group-item list-group-item-action" onclick="promptRole('${r.id}')">${r.last}, ${r.first}</button>`; 
+              }); 
+        }
         function promptRole(id) { document.getElementById('temp-mem-id').value = id; closeModal('modal-add-mem'); new bootstrap.Modal(document.getElementById('modal-select-role')).show(); }
-        function confirmAddToHH() { const id = document.getElementById('temp-mem-id').value; const role = document.getElementById('select-role-input').value; const hh = document.getElementById('manage-hh-name').value; const r = db.find(x => x.id === id); if(r) { r.hh_name = hh; r.hh_role = role; saveDB(); renderHHMembers(hh); closeModal('modal-select-role'); } }
+        async function confirmAddToHH() { const id = document.getElementById('temp-mem-id').value; const role = document.getElementById('select-role-input').value; const hh = document.getElementById('manage-hh-name').value; const r = db.find(x => x.id === id); if(r) { r.hh_name = hh; r.hh_role = role; await iDB.residents.put(r); await refreshData(); renderHHMembers(hh); closeModal('modal-select-role'); } }
 
         // --- FORM B HTML GENERATOR ---
         function generateFormBHTML(r) {
@@ -779,7 +797,7 @@
         function bulkFormBNext() { if((bulkFormBPage + 1) * bulkFormBPerPage < bulkFormBData.length) { bulkFormBPage++; renderBulkFormBModal(); } }
         function executeBulkFormBPrint() {
             const start = bulkFormBPage * bulkFormBPerPage; const end = Math.min(start + bulkFormBPerPage, bulkFormBData.length); const pageData = bulkFormBData.slice(start, end);
-            if(pageData.length === 0) return alert('No records to print.');
+            if(pageData.length === 0) return showSystemAlert('No records to print.');
             let allFormsHTML = `<style>@media print { @page { margin: 10mm; size: portrait; } body { -webkit-print-color-adjust: exact; } .form-b-page { page-break-after: always; } .form-b-page:last-child { page-break-after: auto; } } .form-b-container { font-family: Arial, sans-serif; width: 100%; max-width: 800px; margin: 0 auto; color: black; } .form-header { text-align: center; margin-bottom: 20px; text-transform: uppercase; line-height: 1.2; } .form-title { font-weight: 800; font-size: 13pt; margin-top: 15px; } .main-box { border: 2px solid black; padding: 2px; } .box-title { text-align: center; font-weight: bold; padding: 5px; font-size: 11pt; margin-bottom: 10px; } .input-box { border: 1px solid black; height: 25px; display: flex; align-items: center; padding-left: 5px; font-weight: bold; font-size: 10pt; background: #fff; } .label-under { text-align: center; font-size: 8pt; margin-top: 2px; margin-bottom: 5px; } .layout-table { width: 100%; border-collapse: separate; border-spacing: 5px 0; } .layout-table td { vertical-align: bottom; } .chk-group { display: flex; gap: 10px; font-size: 9pt; align-items: center; margin-left: 10px; } .chk-box { font-size: 14pt; line-height: 10pt; } .legal-text { text-align: justify; font-size: 8pt; margin: 15px 5px; line-height: 1.1; } .thumb-box { border: 1px solid black; width: 80px; height: 80px; margin: 0 auto; } .sig-line { border-bottom: 1px solid black; margin-top: 30px; }</style>`;
             pageData.forEach((r) => { allFormsHTML += `<div class="form-b-page">${generateFormBHTML(r)}</div>`; });
             document.getElementById('print-area').innerHTML = allFormsHTML; window.print();
@@ -809,6 +827,7 @@
         let indicators = [];
         if (m.prof && !m.isUnemployed) indicators.push("Employed");
         if (m.isUnemployed) indicators.push("Unemployed");
+        if (m.isVoter) indicators.push("VOTER");
         if (m.isPwd) indicators.push("PWD");
         if (m.isOfw) indicators.push("OFW");
         if (m.isSoloParent) indicators.push("Solo Parent");
@@ -933,16 +952,17 @@
 
         // --- REPORTING ---
         function updateReportUI() {
-            const living = db.filter(r => !r.isDead); const stats = { male: 0, female: 0, adults: 0, children: 0, solo: 0, pwd: 0, senior: 0, osy: 0, total: living.length };
+            const living = db.filter(r => !r.isDead); const stats = { male: 0, female: 0, adults: 0, children: 0, solo: 0, pwd: 0, senior: 0, osy: 0, voter: 0, total: living.length };
             const totalFamilies = living.filter(r => r.hh_role === 'HEAD').length; const uniqueHH = new Set(living.map(r => r.hh_name).filter(n => n && n.trim() !== '')); const totalHH = uniqueHH.size;
-            living.forEach(r => { if(r.sex === 'MALE') stats.male++; else if(r.sex === 'FEMALE') stats.female++; const age = calculateAgeDetailed(r.bdate).y; if(age < 18) stats.children++; else if(age >= 60) stats.senior++; else stats.adults++; if(r.isPwd) stats.pwd++; if(r.isSoloParent) stats.solo++; if(r.isOSY) stats.osy++; });
+            living.forEach(r => { if(r.sex === 'MALE') stats.male++; else if(r.sex === 'FEMALE') stats.female++; const age = calculateAgeDetailed(r.bdate).y; if(age < 18) stats.children++; else if(age >= 60) stats.senior++; else stats.adults++; if(r.isPwd) stats.pwd++; if(r.isSoloParent) stats.solo++; if(r.isOSY) stats.osy++; if(r.isVoter) stats.voter++; });
             document.getElementById('rep-male').innerText = stats.male; document.getElementById('rep-female').innerText = stats.female; document.getElementById('rep-total').innerText = stats.total; document.getElementById('rep-child').innerText = stats.children; document.getElementById('rep-adult').innerText = stats.adults; document.getElementById('rep-senior').innerText = stats.senior; document.getElementById('rep-pwd').innerText = stats.pwd; document.getElementById('rep-solo').innerText = stats.solo; document.getElementById('rep-osy').innerText = stats.osy; document.getElementById('rep-hh-total').innerText = totalHH; document.getElementById('rep-family-total').innerText = totalFamilies;
+            document.getElementById('rep-voters').innerText = stats.voter;
         }
 
         // --- PRINT STAT CATEGORY ---
         function printStatCategory(category) {
             const living = db.filter(r => !r.isDead); let filtered = []; let label = '';
-            switch(category) { case 'total': filtered = living; label = 'ALL RESIDENTS'; break; case 'male': filtered = living.filter(r => r.sex === 'MALE'); label = 'MALE RESIDENTS'; break; case 'female': filtered = living.filter(r => r.sex === 'FEMALE'); label = 'FEMALE RESIDENTS'; break; case 'children': filtered = living.filter(r => calculateAgeDetailed(r.bdate).y < 18); label = 'CHILDREN (Below 18)'; break; case 'adults': filtered = living.filter(r => { const a = calculateAgeDetailed(r.bdate).y; return a >= 18 && a < 60; }); label = 'ADULTS (18-59)'; break; case 'seniors': filtered = living.filter(r => calculateAgeDetailed(r.bdate).y >= 60); label = 'SENIOR CITIZENS (60+)'; break; case 'pwd': filtered = living.filter(r => r.isPwd); label = 'PERSONS WITH DISABILITY (PWD)'; break; case 'solo': filtered = living.filter(r => r.isSoloParent); label = 'SOLO PARENTS'; break; case 'osy': filtered = living.filter(r => r.isOSY); label = 'OUT OF SCHOOL YOUTH (OSY)'; break; case 'households': printHHHeads(); return; case 'families': filtered = living.filter(r => r.hh_role === 'HEAD'); label = 'HEAD OF FAMILIES'; break; default: filtered = living; label = 'ALL RESIDENTS'; }
+            switch(category) { case 'total': filtered = living; label = 'ALL RESIDENTS'; break; case 'male': filtered = living.filter(r => r.sex === 'MALE'); label = 'MALE RESIDENTS'; break; case 'female': filtered = living.filter(r => r.sex === 'FEMALE'); label = 'FEMALE RESIDENTS'; break; case 'children': filtered = living.filter(r => calculateAgeDetailed(r.bdate).y < 18); label = 'CHILDREN (Below 18)'; break; case 'adults': filtered = living.filter(r => { const a = calculateAgeDetailed(r.bdate).y; return a >= 18 && a < 60; }); label = 'ADULTS (18-59)'; break; case 'seniors': filtered = living.filter(r => calculateAgeDetailed(r.bdate).y >= 60); label = 'SENIOR CITIZENS (60+)'; break; case 'pwd': filtered = living.filter(r => r.isPwd); label = 'PERSONS WITH DISABILITY (PWD)'; break; case 'solo': filtered = living.filter(r => r.isSoloParent); label = 'SOLO PARENTS'; break; case 'osy': filtered = living.filter(r => r.isOSY); label = 'OUT OF SCHOOL YOUTH (OSY)'; break; case 'voters': filtered = living.filter(r => r.isVoter); label = 'REGISTERED VOTERS'; break; case 'households': printHHHeads(); return; case 'families': filtered = living.filter(r => r.hh_role === 'HEAD'); label = 'HEAD OF FAMILIES'; break; default: filtered = living; label = 'ALL RESIDENTS'; }
             filtered.sort((a,b) => a.last.localeCompare(b.last)); printCatData = filtered; printCatPage = 0; printCatLabel = label; renderPrintCatModal(); new bootstrap.Modal(document.getElementById('modal-print-category')).show();
         }
         function renderPrintCatModal() {
@@ -959,47 +979,30 @@
             document.getElementById('print-area').innerHTML = html; window.print();
         }
 
-        // --- AGE RANGE WITH MONTHS ---
-        function toggleAgeUnit() { const unit = document.getElementById('age-unit').value; if(unit === 'years') { document.getElementById('age-years-min-container').classList.remove('d-none'); document.getElementById('age-years-max-container').classList.remove('d-none'); document.getElementById('age-months-min-container').classList.add('d-none'); document.getElementById('age-months-max-container').classList.add('d-none'); } else { document.getElementById('age-years-min-container').classList.add('d-none'); document.getElementById('age-years-max-container').classList.add('d-none'); document.getElementById('age-months-min-container').classList.remove('d-none'); document.getElementById('age-months-max-container').classList.remove('d-none'); } updateAgeRangeCount(); }
-        function showAgeRangeModal() { document.getElementById('age-unit').value = 'years'; document.getElementById('age-min').value = 0; document.getElementById('age-max').value = 100; document.getElementById('age-months-min').value = 0; document.getElementById('age-months-max').value = 11; document.getElementById('age-sex-filter').value = 'ALL'; toggleAgeUnit(); updateAgeRangeCount(); new bootstrap.Modal(document.getElementById('modal-age-range')).show(); document.getElementById('age-min').addEventListener('input', updateAgeRangeCount); document.getElementById('age-max').addEventListener('input', updateAgeRangeCount); document.getElementById('age-months-min').addEventListener('change', updateAgeRangeCount); document.getElementById('age-months-max').addEventListener('change', updateAgeRangeCount); document.getElementById('age-sex-filter').addEventListener('change', updateAgeRangeCount); document.getElementById('age-unit').addEventListener('change', updateAgeRangeCount); }
-        function getAgeRangeFiltered() {
-            const unit = document.getElementById('age-unit').value; const sexFilter = document.getElementById('age-sex-filter').value; const living = db.filter(r => !r.isDead);
-            if(unit === 'years') { const minAge = parseInt(document.getElementById('age-min').value) || 0; const maxAge = parseInt(document.getElementById('age-max').value) || 150; return living.filter(r => { const age = calculateAgeDetailed(r.bdate).y; const inRange = age >= minAge && age <= maxAge; const matchSex = sexFilter === 'ALL' || r.sex === sexFilter; return inRange && matchSex; }); }
-            else { const minMonths = parseInt(document.getElementById('age-months-min').value) || 0; const maxMonths = parseInt(document.getElementById('age-months-max').value) || 11; return living.filter(r => { const age = calculateAgeDetailed(r.bdate); if(age.y > 0) return false; const inRange = age.m >= minMonths && age.m <= maxMonths; const matchSex = sexFilter === 'ALL' || r.sex === sexFilter; return inRange && matchSex; }); }
-        }
-        function updateAgeRangeCount() { document.getElementById('age-range-count').innerText = getAgeRangeFiltered().length; }
-        function printAgeRange() {
-            const filtered = getAgeRangeFiltered(); if(filtered.length === 0) return alert('No records match the selected criteria.'); filtered.sort((a,b) => a.last.localeCompare(b.last)); printCatData = filtered; printCatPage = 0;
-            const unit = document.getElementById('age-unit').value; const sexFilter = document.getElementById('age-sex-filter').value;
-            if(unit === 'years') { const minAge = document.getElementById('age-min').value; const maxAge = document.getElementById('age-max').value; printCatLabel = `RESIDENTS AGED ${minAge}-${maxAge} YEARS` + (sexFilter !== 'ALL' ? ` (${sexFilter})` : ''); }
-            else { const minMonths = document.getElementById('age-months-min').value; const maxMonths = document.getElementById('age-months-max').value; printCatLabel = `INFANTS AGED ${minMonths}-${maxMonths} MONTHS` + (sexFilter !== 'ALL' ? ` (${sexFilter})` : ''); }
-            const ageModal = bootstrap.Modal.getInstance(document.getElementById('modal-age-range')); if(ageModal) ageModal.hide();
-            setTimeout(() => { renderPrintCatModal(); new bootstrap.Modal(document.getElementById('modal-print-category')).show(); }, 300);
-        }
-
-        // --- PRINT STATS ---
-        function printStats() {
-            const living = db.filter(r => !r.isDead);
-            const ageData = { 'Under 5 years old': {m:0, f:0}, '5-9 years old': {m:0, f:0}, '10-14 years old': {m:0, f:0}, '15-19 years old': {m:0, f:0}, '20-24 years old': {m:0, f:0}, '25-29 years old': {m:0, f:0}, '30-34 years old': {m:0, f:0}, '35-39 years old': {m:0, f:0}, '40-44 years old': {m:0, f:0}, '45-49 years old': {m:0, f:0}, '50-54 years old': {m:0, f:0}, '55-59 years old': {m:0, f:0}, '60-64 years old': {m:0, f:0}, '65-69 years old': {m:0, f:0}, '70-74 years old': {m:0, f:0}, '75-79 years old': {m:0, f:0}, '80 years old and over': {m:0, f:0} };
-            const sectorData = { 'Labor Force': {m:0, f:0}, 'Unemployed': {m:0, f:0}, 'Out of School Children (OSC) (6-14 years old)': {m:0, f:0}, 'Out of School Youth (OSY) (15-24 years old)': {m:0, f:0}, 'Person with Disabilities (PWDs)': {m:0, f:0}, 'Overseas Filipino Workers (OFWs)': {m:0, f:0}, 'Solo Parents': {m:0, f:0}, 'Indigenous Peoples (IPs)': {m:0, f:0} };
-            const civilData = { 'Single': {m:0, f:0}, 'Married': {m:0, f:0}, 'Widowed': {m:0, f:0}, 'Separated': {m:0, f:0}, 'Live-in/Common Law': {m:0, f:0} };
-            const citizenData = { 'Filipino': {m:0, f:0}, 'Foreigner': {m:0, f:0} };
-            const totalFamilies = living.filter(r => r.hh_role === 'HEAD').length; const uniqueHH = new Set(living.map(r => r.hh_name).filter(n => n && n.trim() !== '')); const totalHH = uniqueHH.size;
-            living.forEach(r => { const sexKey = (r.sex === 'MALE') ? 'm' : 'f'; const bracket = getFormCBracket(r.bdate); if(ageData[bracket]) ageData[bracket][sexKey]++; if(r.isOsc) sectorData['Out of School Children (OSC) (6-14 years old)'][sexKey]++; if(r.isOSY) sectorData['Out of School Youth (OSY) (15-24 years old)'][sexKey]++; if(r.isPwd) sectorData['Person with Disabilities (PWDs)'][sexKey]++; if(r.isOfw) sectorData['Overseas Filipino Workers (OFWs)'][sexKey]++; if(r.isSoloParent) sectorData['Solo Parents'][sexKey]++; if(r.isIp) sectorData['Indigenous Peoples (IPs)'][sexKey]++; if(r.isUnemployed) sectorData['Unemployed'][sexKey]++; const age = calculateAgeDetailed(r.bdate).y; if(age >= 15 && (r.prof || r.isUnemployed)) { sectorData['Labor Force'][sexKey]++; } let cStatus = r.civil ? r.civil.charAt(0).toUpperCase() + r.civil.slice(1).toLowerCase() : 'Single'; if(cStatus === 'Live-in') cStatus = 'Live-in/Common Law'; if(civilData[cStatus]) civilData[cStatus][sexKey]++; let cit = r.citizen ? r.citizen.charAt(0).toUpperCase() + r.citizen.slice(1).toLowerCase() : 'Filipino'; if(citizenData[cit]) citizenData[cit][sexKey]++; });
-            const buildRows = (obj) => { let html = ''; for (const [key, val] of Object.entries(obj)) { html += `<tr><td style="text-align:left; padding-left:20px;">${key}</td><td>${val.m}</td><td>${val.f}</td><td>${val.m + val.f}</td><td></td></tr>`; } return html; };
-            const html = `<style>.form-c { font-family: Arial, sans-serif; width: 100%; border-collapse: collapse; font-size: 10pt; } .form-c th, .form-c td { border: 1px solid black; padding: 4px; text-align: center; } .form-c .left { text-align: left; font-weight: bold; background: #f0f0f0; } .header-sec { text-align: center; margin-bottom: 20px; } .header-sec h3, .header-sec h4 { margin: 2px; }</style><div class="header-sec"><h3>RBI FORM C (Revised 2024)</h3><h2>MONITORING REPORT</h2><p>for ___ Semester of CY ${new Date().getFullYear()}</p></div><div style="margin-bottom: 15px;"><div>REGION : ${settings.region || '_________'}</div><div>PROVINCE: ${settings.province || '_________'}</div><div>CITY/MUNICIPALITY: ${settings.municipality || '_________'}</div><div>BARANGAY: ${settings.barangay || '_________'}</div></div><div style="margin-bottom: 15px;"><div>Total No. of Barangay Inhabitants: <b>${living.length}</b></div><div>Total No. of Households: <b>${totalHH}</b></div><div>Total No. of Families: <b>${totalFamilies}</b></div></div><table class="form-c"><thead><tr><th style="width:40%">INDICATORS</th><th>MALE</th><th>FEMALE</th><th>TOTAL</th><th>REMARKS</th></tr></thead><tbody><tr><td colspan="5" class="left">Population by Age Bracket:</td></tr>${buildRows(ageData)}<tr><td colspan="5" class="left">Population by Sector:</td></tr>${buildRows(sectorData)}<tr><td colspan="5" class="left">Civil Status:</td></tr>${buildRows(civilData)}<tr><td colspan="5" class="left">Citizenship:</td></tr>${buildRows(citizenData)}</tbody></table><div style="margin-top: 50px; display: flex; justify-content: space-between; text-align: center;"><div style="width: 40%;"><p>Prepared by:</p><br><br><div style="border-bottom: 1px solid black; font-weight: bold;">${settings.secretary || '_________________'}</div><div>Barangay Secretary</div></div><div style="width: 40%;"><p>Submitted by:</p><br><br><div style="border-bottom: 1px solid black; font-weight: bold;">${settings.captain || '_________________'}</div><div>Punong Barangay</div></div></div>`;
-            document.getElementById('print-area').innerHTML = html; window.print();
-        }
-
-        function printHHHeads() { const heads = db.filter(r => r.hh_role === 'HEAD' && !r.isDead); heads.sort((a,b) => a.last.localeCompare(b.last)); let rows = heads.map((m, i) => `<tr><td>${i+1}</td><td>${m.last}, ${m.first}</td><td>${m.hh_name}</td><td>${m.contact || '-'}</td></tr>`).join(''); const html = `<style>.rbi-page { margin: 20px; font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid black; padding: 5px; }</style><div class="rbi-page"><h2 style="text-align:center;">LIST OF HEAD OF FAMILIES</h2><p style="text-align:center;">Barangay ${settings.barangay}</p><table><thead><tr><th>#</th><th>Name of Head</th><th>Household/Family Name</th><th>Contact</th></tr></thead><tbody>${rows}</tbody></table><br><br><p>Certified Correct: <u>${settings.secretary}</u></p></div>`; document.getElementById('print-area').innerHTML = html; window.print(); }
-
         // --- IMPORT / EXPORT ---
         function processExport() {
             const instrHeader = ["COLUMNS", "EXPECTED VALUES/ FORMAT", "REMARKS"];
             const instrData = [["INHABITANT TYPE", "NON-MIGRANT", "Required Field"], ["", "MIGRANT", ""], ["", "TRANSIENT", ""], ["LAST NAME", "", "Required Field"], ["FIRST NAME", "", "Required Field"], ["MIDDLE NAME", "", "Optional Field"], ["SUFFIX", "", "Optional Field"], ["BIRTH PLACE", "", "Optional Field"], ["BIRTHDATE (YYYY-MM-DD)", "2000-12-30", "Required Field"], ["SEX", "MALE", "Required Field"], ["", "FEMALE", "Required Field"], ["CIVIL STATUS", "SINGLE", "Required Field"], ["", "MARRIED", "Required Field"], ["", "WIDOWED", "Required Field"], ["", "DIVORCED", "Required Field"], ["", "SEPARATED", "Required Field"], ["", "COMMON LAW/ LIVE-IN", "Required Field"], ["", "UNKNOWN", "Required Field"], ["", "ANNULLED", "Required Field"], ["CITIZENSHIP", "FILIPINO", "Required Field"], ["", "FOREIGNER", "Required Field"], ["RELIGION", "", "Optional Field"], ["PROFESSION/ OCCUPATION", "", "Optional Field"], ["CONTACT NUMBER", "", "Optional Field"], ["EMAIL ADDRESS", "", "Optional Field"], ["HIGHEST EDUCATIONAL ATTAINMENT", "", "Optional Field"], ["MOTHER'S FIRST NAME", "", "Optional Field"], ["MOTHER'S MIDDLE NAME", "", "Optional Field"], ["MOTHER'S LAST NAME", "", "Optional Field"]];
-            const dataHeader = ["INHABITANT TYPE", "LAST NAME", "FIRST NAME", "MIDDLE NAME", "SUFFIX", "BIRTH PLACE", "BIRTHDATE (YYYY-MM-DD)", "SEX", "CIVIL STATUS", "CITIZENSHIP", "RELIGION", "PROFESSION/ OCCUPATION", "CONTACT NUMBER", "EMAIL ADDRESS", "HIGHEST EDUCATIONAL ATTAINMENT", "MOTHER'S FIRST NAME", "MOTHER'S MIDDLE NAME", "MOTHER'S LAST NAME"];
+            const dataHeader = ["INHABITANT TYPE", "LAST NAME", "FIRST NAME", "MIDDLE NAME", "SUFFIX", "BIRTH PLACE", "BIRTHDATE (YYYY-MM-DD)", "SEX", "CIVIL STATUS", "CITIZENSHIP", "PROFESSION/ OCCUPATION", "CONTACT NUMBER", "EMAIL ADDRESS", "HIGHEST EDUCATIONAL ATTAINMENT", "MOTHER'S FIRST NAME", "MOTHER'S MIDDLE NAME", "MOTHER'S LAST NAME", "PUROK/SITIO", "ADDITIONAL ADDRESS", "RELIGION", "IS OSY", "IS PWD", "IS 4Ps", "IS IPS", "IS SOLO PARENT", "LABOR STATUS", "IS OFW", "IS ISY"];
             const living = db.filter(r => !r.isDead);
-            const dataRows = living.map(r => [r.type || "", r.last || "", r.first || "", r.middle || "", r.suffix || "", r.bplace || "", r.bdate || "", r.sex || "", r.civil || "", r.citizen || "FILIPINO", r.religion || "", r.prof || "", r.contact || "", r.email || "", r.edu || "", r.mother_first || "", r.mother_middle || "", r.mother_last || ""]);
+            // Updated Export Loop to Match Import Structure
+            const dataRows = living.map(r => {
+                // Split address if possible, though imperfect
+                let purok = '', addAdd = r.address || '';
+                if(r.address && r.address.includes('Purok')) {
+                    const parts = r.address.split('Purok');
+                    addAdd = parts[0].trim();
+                    purok = parts[1].trim();
+                }
+                return [
+                    r.type || "NON-MIGRANT", r.last || "", r.first || "", r.middle || "", r.suffix || "", r.bplace || "", r.bdate || "", r.sex || "", r.civil || "", r.citizen || "FILIPINO", 
+                    r.prof || "", // Profession is now correctly placed
+                    r.contact || "", r.email || "", r.edu || "", r.mother_first || "", r.mother_middle || "", r.mother_last || "", 
+                    purok, addAdd, 
+                    r.religion || "", // Religion is now correctly placed
+                    r.isOSY ? "YES" : "NO", r.isPwd ? "YES" : "NO", "NO", r.isIp ? "YES" : "NO", r.isSoloParent ? "YES" : "NO", r.isUnemployed ? "UNEMPLOYED" : "EMPLOYED", r.isOfw ? "YES" : "NO", "NO"
+                ];
+            });
             const wb = XLSX.utils.book_new(); const wsInstr = XLSX.utils.aoa_to_sheet([instrHeader, ...instrData]); XLSX.utils.book_append_sheet(wb, wsInstr, "INSTRUCTIONS"); const wsData = XLSX.utils.aoa_to_sheet([dataHeader, ...dataRows]); XLSX.utils.book_append_sheet(wb, wsData, "DATA"); XLSX.writeFile(wb, "RBI_Export_BIMS.xlsx");
         }
 
@@ -1008,7 +1011,25 @@
         function restoreData(event) {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) { try { const imported = JSON.parse(e.target.result); if(imported.db) { db = imported.db; if(imported.settings) settings = imported.settings; if(imported.household_db) household_db = imported.household_db; saveDB(); alert("Restored!"); location.reload(); } } catch(err) { alert("Error reading file"); } };
+            reader.onload = async function(e) { try { 
+                const imported = JSON.parse(e.target.result); 
+                if(imported.db) { 
+                    await iDB.residents.clear();
+                    await iDB.residents.bulkPut(imported.db);
+                    
+                    if(imported.household_db) {
+                        await iDB.households.clear();
+                        await iDB.households.bulkPut(imported.household_db);
+                    }
+                    if(imported.settings) {
+                        settings = imported.settings;
+                        localStorage.setItem('rbi_settings', JSON.stringify(settings));
+                    }
+                    
+                    await refreshData();
+                    showSystemAlert("Restored!"); location.reload(); 
+                } 
+            } catch(err) { showSystemAlert("Error reading file: " + err); } };
             reader.readAsText(file);
         }
 
@@ -1021,7 +1042,19 @@
                 const startRow = (json[0] && json[0][0] === "INHABITANT TYPE") ? 1 : 0;
                 for(let i=startRow; i<json.length; i++) {
                     const row = json[i]; if(!row || row.length === 0) continue;
-                    const tempRec = { type: row[0], last: row[1], first: row[2], middle: row[3] || '', suffix: row[4] || '', bplace: row[5] || '', bdate: row[6], sex: row[7], civil: row[8], citizen: row[9] || 'FILIPINO', religion: row[10] || '', prof: row[11] || '', contact: row[12] || '', email: row[13] || '', edu: row[14] || '', mother_first: row[15] || '', mother_middle: row[16] || '', mother_last: row[17] || '', isPwd: false, isSoloParent: false, isOSY: false, isDead: false, address: '', hh_name: '', hh_role: 'MEMBER' };
+                    // UPDATED MAPPING: Column K (10) is Religion, Column L (11) is Profession
+                    const tempRec = { type: row[0], last: row[1], first: row[2], middle: row[3] || '', suffix: row[4] || '', bplace: row[5] || '', bdate: row[6], sex: row[7], civil: row[8], citizen: row[9] || 'FILIPINO', 
+                        prof: row[10] || '', // FIXED: Index 10 is Profession
+                        contact: row[11] || '', email: row[12] || '', edu: row[13] || '', mother_first: row[14] || '', mother_middle: row[15] || '', mother_last: row[16] || '', 
+                        address: (row[18] || '') + ' ' + (row[17] ? 'Purok ' + row[17] : ''), // Combine Address + Purok
+                        religion: row[19] || '', // FIXED: Index 19 is Religion
+                        isOSY: (row[20] && row[20].toString().toUpperCase() === 'YES'),
+                        isPwd: (row[21] && row[21].toString().toUpperCase() === 'YES'),
+                        isIp: (row[23] && row[23].toString().toUpperCase() === 'YES'),
+                        isSoloParent: (row[24] && row[24].toString().toUpperCase() === 'YES'),
+                        isOfw: (row[26] && row[26].toString().toUpperCase() === 'YES'),
+                        isVoter: false, isDead: false, hh_name: '', hh_role: 'MEMBER' };
+                    
                     if(!tempRec.last || !tempRec.first || !tempRec.bdate) { stagingInvalid.push({ line: i+1, data: tempRec }); continue; }
                     const exists = db.some(x => x.last.toLowerCase() === tempRec.last.toLowerCase() && x.first.toLowerCase() === tempRec.first.toLowerCase() && x.bdate === tempRec.bdate);
                     if(exists) { stagingDup.push({ line: i+1, name: `${tempRec.last}, ${tempRec.first}` }); continue; }
@@ -1039,15 +1072,20 @@
 
         function showImportTab(tab) { document.querySelectorAll('.import-view').forEach(el => el.classList.add('d-none')); document.getElementById('view-'+tab).classList.remove('d-none'); }
         function closeImportModal() { document.getElementById('modal-import').style.display = 'none'; document.getElementById('modal-import').classList.remove('show'); document.getElementById('import-file').value = ''; }
-        function commitImport() { if(stagingValid.length === 0) return; db = db.concat(stagingValid); saveDB(); closeImportModal(); alert(`Imported ${stagingValid.length} records.`); showHome(); }
+        
+        async function commitImport() { 
+            if(stagingValid.length === 0) return; 
+            await iDB.residents.bulkPut(stagingValid);
+            await refreshData();
+            closeImportModal(); showSystemAlert(`Imported ${stagingValid.length} records.`); showHome(); 
+        }
 
         // --- SETTINGS ---
         function saveSettings() {
             const sec = document.getElementById('set-sec').value; const brgy = document.getElementById('set-brgy').value; const prov = document.getElementById('set-prov').value; const muni = document.getElementById('set-muni').value; const lguType = document.getElementById('set-lgu-type').value; const region = document.getElementById('set-region').value; const captain = document.getElementById('set-captain').value;
-            if(!sec || !brgy) return alert("Please fill in Barangay and Secretary name.");
+            if(!sec || !brgy) return showSystemAlert("Please fill in Barangay and Secretary name.");
             settings.secretary = sec.toUpperCase(); settings.barangay = brgy.toUpperCase(); settings.province = prov ? prov.toUpperCase() : ''; settings.municipality = muni ? muni.toUpperCase() : ''; settings.lguType = lguType; settings.region = region ? region.toUpperCase() : ''; settings.captain = captain ? captain.toUpperCase() : '';
-            saveDB(); // Save to file if open
-            alert('Configuration Saved!');
+            localStorage.setItem('rbi_settings', JSON.stringify(settings)); showSystemAlert('Configuration Saved!');
         }
     </script>
 </body>
