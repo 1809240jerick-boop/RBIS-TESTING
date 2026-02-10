@@ -15,7 +15,7 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RBI Management System 2026</title>
+    <title>RBI Management System 2026 (Disk Mode)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -158,6 +158,13 @@
     .bulk-formb-item .formb-info { flex: 1; }
     .bulk-formb-item .formb-name { font-weight: 600; font-size: 0.9rem; }
     .bulk-formb-item .formb-meta { font-size: 0.75rem; color: var(--text-secondary); }
+    
+    /* DISK MODE STYLES */
+    .disk-controls { padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; background: rgba(0,0,0,0.2); }
+    .disk-btn { width: 100%; text-align: left; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #cbd5e1; margin-bottom: 6px; transition: all 0.2s; }
+    .disk-btn:hover { background: rgba(255,255,255,0.05); color: white; border-color: rgba(255,255,255,0.2); }
+    .disk-btn i { width: 20px; text-align: center; margin-right: 8px; }
+    .disk-status { font-size: 0.65rem; color: rgba(255,255,255,0.4); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -191,6 +198,14 @@
             <h4><i class="fas fa-users-cog" style="color:#60a5fa;"></i> RBI System</h4>
             <small>Brgy. Data Management</small>
         </div>
+        
+        <div class="disk-controls">
+            <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,0.3); margin-bottom:8px; font-weight:700;">Disk Storage Mode</div>
+            <button class="disk-btn" onclick="openDatabaseFile()"><i class="fas fa-folder-open" style="color:#fcd34d;"></i> Open Database</button>
+            <button class="disk-btn" onclick="saveDatabaseFile()"><i class="fas fa-save" style="color:#4ade80;"></i> Save Changes</button>
+            <button class="disk-btn" onclick="saveAsNewFile()"><i class="fas fa-file-export" style="color:#60a5fa;"></i> Save As New...</button>
+            <div id="file-status" class="disk-status"><i class="fas fa-circle" style="font-size:6px; color:#ef4444; margin-right:4px;"></i> No File Loaded</div>
+        </div>
         <span class="nav-label">Main</span>
         <a href="#" onclick="showHome()" class="nav-link active"><i class="fas fa-th-large me-1"></i> Dashboard</a>
         <a href="#" onclick="showAdd()" class="nav-link"><i class="fas fa-user-plus me-1"></i> Add Resident</a>
@@ -205,7 +220,6 @@
     </div>
 
     <div class="content" id="main-container">
-        <!-- DASHBOARD -->
         <div id="section-home">
             <div class="page-title">Dashboard Overview</div>
             <div class="page-subtitle">Real-time barangay population summary</div>
@@ -268,7 +282,6 @@
             </div>
         </div>
 
-        <!-- ADD RESIDENT -->
         <div id="section-add" class="d-none">
             <div class="page-title">Resident Information Sheet</div>
             <div class="page-subtitle">Add or edit an individual resident record</div>
@@ -324,7 +337,6 @@
             </div>
         </div>
 
-        <!-- HOUSEHOLDS -->
         <div id="section-hh" class="d-none">
             <div class="section-bar">
                 <div><div class="page-title">Household Management</div><div class="page-subtitle">Manage household groups and members</div></div>
@@ -368,7 +380,6 @@
             </div>
         </div>
 
-        <!-- DEATHS -->
         <div id="section-deaths" class="d-none">
              <div class="page-title" style="color:var(--accent-red);">Death Registry <span class="badge bg-danger rounded-pill" id="death-total" style="font-size:0.9rem;">0</span></div>
              <div class="page-subtitle">List of deceased barangay residents</div>
@@ -380,7 +391,6 @@
             </div>
         </div>
 
-        <!-- IMPORT/EXPORT -->
         <div id="section-import" class="d-none">
             <div class="page-title">Data Import / Export</div>
             <div class="page-subtitle">Backup, restore, or export data in BIMS format</div>
@@ -411,7 +421,6 @@
             </div>
         </div>
 
-        <!-- SETTINGS -->
         <div id="section-settings" class="d-none">
             <div class="page-title">System Configuration</div>
             <div class="page-subtitle">Configure barangay details and signatories</div>
@@ -427,7 +436,6 @@
             </div>
         </div>
 
-        <!-- OTHER SYSTEMS -->
         <div id="section-other" class="d-none">
             <div class="page-title">Other Systems</div>
             <div class="page-subtitle">Additional barangay management modules</div>
@@ -452,7 +460,6 @@
         </div>
     </div>
 
-    <!-- MODALS -->
     <div class="modal fade" id="modal-new-hh" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Create New Household</h5></div><div class="modal-body"><label>Household Name (Family Name)</label><input type="text" id="new-hh-name" class="form-control text-uppercase mb-2"><label>Purok</label><input type="text" id="new-hh-purok" class="form-control text-uppercase mb-2"><label>House Number</label><input type="text" id="new-hh-num" class="form-control text-uppercase"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-primary" onclick="createHH()">Create</button></div></div></div></div>
 
     <div class="modal fade" id="modal-edit-hh" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Edit Household Details</h5></div><div class="modal-body"><input type="hidden" id="edit-hh-old-name"><label>Household Name (Family Name)</label><input type="text" id="edit-hh-name" class="form-control text-uppercase mb-2"><label>Purok</label><input type="text" id="edit-hh-purok" class="form-control text-uppercase mb-2"><label>House Number</label><input type="text" id="edit-hh-num" class="form-control text-uppercase"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-success" onclick="saveEditedHH()">Save Changes</button></div></div></div></div>
@@ -463,7 +470,6 @@
 
     <div class="modal" id="modal-import" tabindex="-1" style="background:rgba(0,0,0,0.5);"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5>Import Preview</h5></div><div class="modal-body"><ul class="nav nav-tabs mb-3"><li class="nav-item"><a class="nav-link active" onclick="showImportTab('valid')" href="#">Valid (<span id="count-valid">0</span>)</a></li><li class="nav-item"><a class="nav-link text-warning" onclick="showImportTab('dup')" href="#">Duplicates (<span id="count-dup">0</span>)</a></li><li class="nav-item"><a class="nav-link text-danger" onclick="showImportTab('invalid')" href="#">Invalid (<span id="count-invalid">0</span>)</a></li></ul><div id="view-valid" class="import-view" style="max-height:300px; overflow-y:auto;"><p class="text-success">Ready to import <span id="lbl-valid-count">0</span> records.</p></div><div id="view-dup" class="import-view d-none" style="max-height:300px; overflow-y:auto;"><div id="list-dup" class="text-warning small"></div></div><div id="view-invalid" class="import-view d-none" style="max-height:300px; overflow-y:auto;"><div id="list-invalid" class="text-danger small"></div></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button><button class="btn btn-success" id="btn-commit-import" onclick="commitImport()" disabled>Import Valid Records</button></div></div></div></div>
 
-    <!-- AGE RANGE PRINT MODAL -->
     <div class="modal fade" id="modal-age-range" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-sliders-h me-2" style="color:var(--accent-blue);"></i>Print by Age Range</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -480,7 +486,6 @@
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="printAgeRange()"><i class="fas fa-print me-1"></i> Print</button></div>
     </div></div></div>
 
-    <!-- PRINT CATEGORY MODAL -->
     <div class="modal fade" id="modal-print-category" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;" id="print-cat-title"><i class="fas fa-print me-2" style="color:var(--accent-blue);"></i>Print Records</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -493,7 +498,6 @@
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-primary" onclick="executePrintCategory()"><i class="fas fa-print me-1"></i> Print This Page (100 max)</button></div>
     </div></div></div>
 
-    <!-- BULK FORM B MODAL -->
     <div class="modal fade" id="modal-bulk-formb" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-file-alt me-2" style="color:var(--accent-green);"></i>Bulk Print RBI Form B</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -511,16 +515,98 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- GLOBAL STATE ---
-        let db = JSON.parse(localStorage.getItem('rbi_db')) || [];
-        let household_db = JSON.parse(localStorage.getItem('rbi_hh_db')) || [];
-        let settings = JSON.parse(localStorage.getItem('rbi_settings')) || { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
+        // --- GLOBAL STATE & DISK I/O VARIABLES ---
+        let fileHandle = null; // Store the file reference
+        let db = []; // START EMPTY - LOADED FROM FILE
+        let household_db = [];
+        let settings = { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
+        
         let stagingValid = [], stagingInvalid = [], stagingDup = [];
         let printCatData = [], printCatPage = 0, printCatLabel = '';
         let residentPage = 0, residentPerPage = 10, residentFiltered = [];
         let hhPage = 0, hhPerPage = 10, hhFiltered = [];
         let deathPage = 0, deathPerPage = 10;
         let bulkFormBData = [], bulkFormBPage = 0, bulkFormBPerPage = 200;
+
+        // --- DISK STORAGE FUNCTIONS ---
+        async function openDatabaseFile() {
+            try {
+                // Open file picker
+                [fileHandle] = await window.showOpenFilePicker({
+                    types: [{ description: 'RBI Database File', accept: { 'application/json': ['.json'] } }],
+                });
+                
+                // Read and Parse
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                // Load Memory
+                db = data.db || [];
+                household_db = data.household_db || [];
+                settings = data.settings || settings;
+                
+                // UI Updates
+                document.getElementById('file-status').innerHTML = `<i class="fas fa-circle" style="font-size:6px; color:#4ade80; margin-right:4px;"></i> ${file.name}`;
+                updateReportUI();
+                renderList();
+                showHome();
+                alert(`Loaded ${db.length} residents successfully.`);
+            } catch (err) {
+                console.error(err);
+                if(err.name !== 'AbortError') alert("Error opening file: " + err.message);
+            }
+        }
+
+        async function saveDatabaseFile() {
+            if (!fileHandle) { return saveAsNewFile(); } // Redirect to Save As if no file open
+            try {
+                // Create writable stream
+                const writable = await fileHandle.createWritable();
+                const fullData = { metadata: "RBI System 2026", last_saved: new Date().toISOString(), settings: settings, household_db: household_db, db: db };
+                await writable.write(JSON.stringify(fullData));
+                await writable.close();
+                alert("✅ Changes saved to Disk!");
+            } catch (err) {
+                console.error(err);
+                alert("Error saving: " + err.message);
+            }
+        }
+
+        async function saveAsNewFile() {
+            try {
+                const options = { suggestedName: 'RBI_Database.json', types: [{ description: 'RBI Database File', accept: { 'application/json': ['.json'] } }] };
+                fileHandle = await window.showSaveFilePicker(options);
+                
+                // Update UI status immediately
+                const file = await fileHandle.getFile();
+                document.getElementById('file-status').innerHTML = `<i class="fas fa-circle" style="font-size:6px; color:#4ade80; margin-right:4px;"></i> ${file.name}`;
+                
+                // Save immediately
+                await saveDatabaseFile();
+            } catch (err) {
+                // Cancelled
+            }
+        }
+
+        // MODIFYING saveDB TO TRIGGER SAVE IF FILE OPEN
+        function saveDB() {
+            // We update memory immediately (done in callers), but we try to persist to disk if possible
+            if(fileHandle) {
+                // Optional: Auto-save or just rely on manual save. 
+                // For reliability with large files, let's keep it manual or notify user to save.
+                // Or better yet, call saveDatabaseFile() but handle the async nature.
+                // For now, we will just keep data in memory variables and user must click "Save Changes"
+                // to avoid permission prompt spam, OR use the button. 
+                // A better UX for "Save Record" button:
+                saveDatabaseFile();
+            } else {
+               // No file open, data is just in RAM.
+               // We don't use localStorage anymore to avoid limits.
+               alert("⚠️ Record stored in RAM only. Please click 'Save As New' or 'Open Database' to persist data to disk.");
+            }
+            updateReportUI();
+        }
 
         // Debounce function (400ms delay)
         function debounce(func, wait) {
@@ -538,9 +624,14 @@
         const debouncedSearchMemForHH = debounce(() => searchMemForHH(), 400);
 
         document.addEventListener("DOMContentLoaded", () => {
+            // INITIALIZATION: Start empty, waiting for file load.
+            updateServerTime(); 
+            renderList();
+            
+            // NOTE: Removed localStorage loading logic.
+            // If settings were loaded (empty default), check password state
             if(settings.user_password) { document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); }
             else { document.getElementById('login-phase-1').classList.remove('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); }
-            updateServerTime(); renderList();
         });
 
         // --- SECURITY ---
@@ -559,8 +650,8 @@
         function setCustomPassword() {
             const p1 = document.getElementById('new-custom-pass').value; const p2 = document.getElementById('confirm-custom-pass').value;
             if(!p1 || p1 !== p2) return alert("Passwords do not match or are empty.");
-            settings.user_password = p1; localStorage.setItem('rbi_settings', JSON.stringify(settings));
-            alert("Password set successfully!"); document.getElementById('security-overlay').classList.add('d-none');
+            settings.user_password = p1; // Saved to memory, will be saved to disk on next save
+            alert("Password set successfully! Don't forget to SAVE CHANGES to disk."); document.getElementById('security-overlay').classList.add('d-none');
         }
         function verifyCustomPassword() {
             const input = document.getElementById('input-custom-pass').value;
@@ -571,7 +662,6 @@
         function logout() { document.getElementById('main-container').classList.add('d-none'); document.querySelector('.sidebar').style.display = 'none'; document.getElementById('security-overlay').classList.remove('d-none'); document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); document.getElementById('input-custom-pass').value = ''; }
 
         // --- CORE ---
-        function saveDB() { localStorage.setItem('rbi_db', JSON.stringify(db)); localStorage.setItem('rbi_hh_db', JSON.stringify(household_db)); updateReportUI(); }
         function hideAll() { ['section-home','section-add','section-hh','section-import','section-settings','section-deaths','section-other'].forEach(id => { document.getElementById(id).classList.add('d-none'); }); document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active')); }
         function showHome() { hideAll(); document.getElementById('section-home').classList.remove('d-none'); residentPage = 0; renderList(); }
         function showAdd() { hideAll(); document.getElementById('section-add').classList.remove('d-none'); clearForm(); }
@@ -591,7 +681,8 @@
             const currentRec = id ? db.find(x=>x.id===id) : null;
             const record = { id: id || Date.now().toString(), type: document.getElementById('f-type').value, last: last, first: first, middle: document.getElementById('f-middle').value, suffix: document.getElementById('f-suffix').value, bdate: bdate, sex: document.getElementById('f-sex').value, civil: document.getElementById('f-civil').value, religion: document.getElementById('f-religion').value, citizen: document.getElementById('f-citizen').value, philsys: document.getElementById('f-philsys').value, bplace: document.getElementById('f-bplace').value, prof: document.getElementById('f-prof').value, mother_last: document.getElementById('f-m-last').value, mother_first: document.getElementById('f-m-first').value, mother_middle: document.getElementById('f-m-middle').value, isSoloParent: document.getElementById('f-solo').checked, isPwd: document.getElementById('f-pwd').checked, isOfw: document.getElementById('f-ofw').checked, isIp: document.getElementById('f-ip').checked, isOsc: document.getElementById('f-osc').checked, isOSY: document.getElementById('f-osy').checked, isUnemployed: document.getElementById('f-unemployed').checked, isDead: document.getElementById('f-dead').checked, deathDate: document.getElementById('f-death-date').value, contact: document.getElementById('f-contact').value, email: document.getElementById('f-email').value, edu: document.getElementById('f-edu').value, address: document.getElementById('f-address').value, hh_name: currentRec ? currentRec.hh_name : '', hh_role: currentRec ? currentRec.hh_role : 'MEMBER' };
             if(id) { const index = db.findIndex(x => x.id === id); db[index] = record; } else { db.push(record); }
-            saveDB(); alert('Saved'); if(record.isDead) showDeaths(); else showHome();
+            saveDB(); 
+            if(record.isDead) showDeaths(); else showHome();
         }
 
         function loadRecord(id) {
@@ -917,7 +1008,7 @@
         function restoreData(event) {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) { try { const imported = JSON.parse(e.target.result); if(imported.db) { db = imported.db; if(imported.settings) settings = imported.settings; if(imported.household_db) household_db = imported.household_db; saveDB(); localStorage.setItem('rbi_settings', JSON.stringify(settings)); alert("Restored!"); location.reload(); } } catch(err) { alert("Error reading file"); } };
+            reader.onload = function(e) { try { const imported = JSON.parse(e.target.result); if(imported.db) { db = imported.db; if(imported.settings) settings = imported.settings; if(imported.household_db) household_db = imported.household_db; saveDB(); alert("Restored!"); location.reload(); } } catch(err) { alert("Error reading file"); } };
             reader.readAsText(file);
         }
 
@@ -955,7 +1046,8 @@
             const sec = document.getElementById('set-sec').value; const brgy = document.getElementById('set-brgy').value; const prov = document.getElementById('set-prov').value; const muni = document.getElementById('set-muni').value; const lguType = document.getElementById('set-lgu-type').value; const region = document.getElementById('set-region').value; const captain = document.getElementById('set-captain').value;
             if(!sec || !brgy) return alert("Please fill in Barangay and Secretary name.");
             settings.secretary = sec.toUpperCase(); settings.barangay = brgy.toUpperCase(); settings.province = prov ? prov.toUpperCase() : ''; settings.municipality = muni ? muni.toUpperCase() : ''; settings.lguType = lguType; settings.region = region ? region.toUpperCase() : ''; settings.captain = captain ? captain.toUpperCase() : '';
-            localStorage.setItem('rbi_settings', JSON.stringify(settings)); alert('Configuration Saved!');
+            saveDB(); // Save to file if open
+            alert('Configuration Saved!');
         }
     </script>
 </body>
