@@ -102,6 +102,8 @@
     .record-card:hover { border-color: var(--accent-blue); box-shadow: var(--shadow-sm); }
     .form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 9px 14px; font-size: 0.88rem; transition: all 0.2s; }
     .form-control:focus, .form-select:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    input.form-control:not([type="password"]):not([type="file"]):not([type="date"]):not([type="number"]):not(.no-caps),
+    textarea.form-control:not(.no-caps) { text-transform: uppercase; }
     .form-check-input:checked { background-color: var(--accent-blue); border-color: var(--accent-blue); }
     .btn { border-radius: var(--radius-sm); font-weight: 600; font-size: 0.88rem; padding: 9px 18px; transition: all 0.2s; }
     .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); }
@@ -191,6 +193,8 @@
         <div class="sidebar-header">
             <h4><i class="fas fa-users-cog" style="color:#60a5fa;"></i> RBI System</h4>
             <small>Brgy. Data Management</small>
+            <div id="save-status" style="font-size:0.68rem;margin-top:6px;opacity:0;transition:opacity 0.5s;font-weight:600;">💾 Saved</div>
+            <div id="file-status" style="font-size:0.62rem;margin-top:2px;color:rgba(255,255,255,0.3);">📂 No file linked</div>
         </div>
         <span class="nav-label">Main</span>
         <a href="#" onclick="showHome()" class="nav-link active"><i class="fas fa-th-large me-1"></i> Dashboard</a>
@@ -395,8 +399,10 @@
                         <button class="btn btn-success" onclick="processExport()">Download BIMS Excel</button>
                         <hr>
                         <h4 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-database" style="color:var(--accent-blue);"></i> System Backup</h4>
-                        <p class="text-muted">Full system backup (JSON) including residents, households, settings, and <strong>KP System data</strong> (cases, lupon, incidents).</p>
-                        <button class="btn btn-primary" onclick="backupData()"><i class="fas fa-download me-1"></i> Download Backup</button>
+                        <p class="text-muted">Full backup (JSON) of all residents, households, settings, and KP data. Data auto-saves to <strong>RBIS_Data.json</strong> on your PC on every change.</p>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn btn-primary" onclick="backupData()"><i class="fas fa-download me-1"></i> Download Backup</button>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -576,12 +582,381 @@
 
     <div id="print-area"></div>
 
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- GLOBAL STATE ---
-        let db = JSON.parse(localStorage.getItem('rbi_db')) || [];
-        let household_db = JSON.parse(localStorage.getItem('rbi_hh_db')) || [];
-        let settings = JSON.parse(localStorage.getItem('rbi_settings')) || { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
+        // ═══════════════════════════════════════════════════════════
+        // REAL FILE PERSISTENCE — survives ALL browser clears
+        // File handle stored in IndexedDB so picker appears ONCE.
+        // On every restart, handle is restored and loads instantly.
+        // KP license lives inside the file — never in localStorage.
+        // ═══════════════════════════════════════════════════════════
+
+        let _fileHandle  = null;
+        let _writing     = false;
+        let _kp_licensed = false;
+
+        // ── IndexedDB: remember the file handle between sessions ──
+        const _HDB = 'rbis_fh';
+        function _openHDB() {
+            return new Promise((res, rej) => {
+                const r = indexedDB.open(_HDB, 1);
+                r.onupgradeneeded = e => e.target.result.createObjectStore('h');
+                r.onsuccess = e => res(e.target.result);
+                r.onerror   = e => rej(e.target.error);
+            });
+        }
+        async function _saveHandleIDB(h) {
+            try {
+                const d = await _openHDB();
+                await new Promise((res, rej) => {
+                    const tx = d.transaction('h', 'readwrite');
+                    tx.objectStore('h').put(h, 'fh');
+                    tx.oncomplete = res; tx.onerror = rej;
+                });
+            } catch(e) { console.warn('Handle save failed', e); }
+        }
+        async function _loadHandleIDB() {
+            try {
+                const d = await _openHDB();
+                return await new Promise((res, rej) => {
+                    const req = d.transaction('h').objectStore('h').get('fh');
+                    req.onsuccess = () => res(req.result ?? null);
+                    req.onerror   = () => rej(req.error);
+                });
+            } catch(e) { return null; }
+        }
+        async function _clearHandleIDB() {
+            try {
+                const d = await _openHDB();
+                const tx = d.transaction('h', 'readwrite');
+                tx.objectStore('h').delete('fh');
+            } catch(e) {}
+        }
+
+        // ── Build payload ──
+        function buildPayload() {
+            return {
+                db, household_db, settings,
+                kp_licensed:  _kp_licensed,
+                kp_cases:     _safeLS('kp_cases_v2', []),
+                kp_lupon:     _safeLS('kp_lupon', []),
+                kp_incidents: _safeLS('kp_incidents', []),
+                savedAt:      new Date().toISOString()
+            };
+        }
+        function _safeLS(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch(e) { return d; } }
+
+        // ── Apply payload to memory ──
+        function applyPayload(p) {
+            if (p.db)           db           = p.db;
+            if (p.household_db) household_db = p.household_db;
+            if (p.settings)     settings     = p.settings;
+            _kp_licensed = p.kp_licensed === true;
+            if (p.kp_cases)     localStorage.setItem('kp_cases_v2', JSON.stringify(p.kp_cases));
+            if (p.kp_lupon)     localStorage.setItem('kp_lupon',    JSON.stringify(p.kp_lupon));
+            if (p.kp_incidents) localStorage.setItem('kp_incidents',JSON.stringify(p.kp_incidents));
+        }
+
+        // ── Write to file ──
+        async function _writeFile() {
+            if (!_fileHandle || _writing) return;
+            _writing = true;
+            try {
+                const w = await _fileHandle.createWritable();
+                await w.write(JSON.stringify(buildPayload(), null, 2));
+                await w.close();
+            } catch(e) { console.error('Write error:', e); }
+            _writing = false;
+        }
+
+        // ── Read from file ──
+        async function _readFile() {
+            if (!_fileHandle) return null;
+            try {
+                const f = await _fileHandle.getFile();
+                const t = await f.text();
+                return t.trim() ? JSON.parse(t) : null;
+            } catch(e) { return null; }
+        }
+
+        // ── Persist ──
+        async function persistData() {
+            await _writeFile();
+            showSaveStatus(!!_fileHandle);
+        }
+
+        // ── Main init: try remembered handle first, picker only if needed ──
+        async function initStorage() {
+            const saved = await _loadHandleIDB();
+
+            if (saved) {
+                // Handle remembered — one-click resume
+                await _showResumeScreen(saved);
+            } else {
+                // Check for legacy localStorage data (existing user updating)
+                const hasLegacy = !!localStorage.getItem('rbi_db');
+                if (hasLegacy) {
+                    await _showLegacyMigrationScreen();
+                } else {
+                    // Brand new install — full file picker
+                    await _showFilePicker();
+                }
+            }
+
+            // Load data from file
+            if (_fileHandle) {
+                const data = await _readFile();
+                if (data && data.db) {
+                    applyPayload(data);
+                }
+                // (legacy migration already loaded data before writing)
+            }
+        }
+
+        // ── Resume screen: one click to re-grant permission on remembered file ──
+        function _showResumeScreen(savedHandle) {
+            return new Promise(resolve => {
+                const over = document.createElement('div');
+                over.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#111827 100%);';
+                over.innerHTML = `
+                    <div style="position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(37,99,235,0.12) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                    <div style="background:rgba(30,41,59,0.8);backdrop-filter:blur(20px);padding:44px 40px;
+                        border-radius:16px;border:1px solid rgba(255,255,255,0.08);
+                        box-shadow:0 25px 50px rgba(0,0,0,0.3);width:420px;max-width:100%;
+                        text-align:center;position:relative;z-index:1;color:white;">
+                        <i class="fas fa-shield-alt" style="font-size:2.5rem;color:#60a5fa;margin-bottom:16px;display:block;"></i>
+                        <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;">
+                            RBI SECURE
+                        </h3>
+                        <p style="color:rgba(255,255,255,0.35);font-size:0.8rem;margin-bottom:32px;">
+                            <i class="fas fa-file-alt me-1" style="color:#60a5fa;"></i>
+                            <code style="background:rgba(255,255,255,0.07);padding:2px 8px;border-radius:5px;color:#93c5fd;">${savedHandle.name}</code>
+                        </p>
+                        <button id="btn-resume"
+                            style="width:100%;background:#2563eb;border:none;border-radius:10px;
+                            padding:14px;color:white;font-family:'Plus Jakarta Sans',sans-serif;
+                            font-weight:700;font-size:1rem;cursor:pointer;transition:all 0.2s;
+                            box-shadow:0 4px 16px rgba(37,99,235,0.35);"
+                            onmouseover="this.style.background='#1d4ed8';this.style.transform='translateY(-1px)'"
+                            onmouseout="this.style.background='#2563eb';this.style.transform=''">
+                            <i class="fas fa-play me-2"></i>Open RBIS
+                        </button>
+                        <div style="margin-top:14px;">
+                            <button id="btn-change-file" style="background:none;border:none;color:rgba(255,255,255,0.25);
+                                font-size:0.75rem;cursor:pointer;text-decoration:underline;font-family:'Plus Jakarta Sans',sans-serif;">
+                                Use a different file
+                            </button>
+                        </div>
+                        <div id="resume-status" style="margin-top:14px;font-size:0.8rem;color:rgba(255,255,255,0.3);min-height:18px;"></div>
+                    </div>`;
+                document.body.appendChild(over);
+
+                const status = over.querySelector('#resume-status');
+
+                over.querySelector('#btn-resume').onclick = async () => {
+                    status.textContent = 'Loading...';
+                    try {
+                        let perm = await savedHandle.queryPermission({ mode: 'readwrite' });
+                        if (perm !== 'granted') {
+                            perm = await savedHandle.requestPermission({ mode: 'readwrite' });
+                        }
+                        if (perm === 'granted') {
+                            _fileHandle = savedHandle;
+                            status.innerHTML = `<span style="color:#34d399;"><i class="fas fa-check-circle me-1"></i>Loaded</span>`;
+                            setTimeout(() => { over.remove(); resolve(); }, 400);
+                        } else {
+                            status.innerHTML = `<span style="color:#f87171;">Permission denied. Try "Use a different file".</span>`;
+                        }
+                    } catch(e) {
+                        status.innerHTML = `<span style="color:#f87171;">Error — try "Use a different file".</span>`;
+                    }
+                };
+
+                over.querySelector('#btn-change-file').onclick = async () => {
+                    await _clearHandleIDB();
+                    over.remove();
+                    await _showFilePicker();
+                    resolve();
+                };
+            });
+        }
+
+        // ── Legacy migration: existing user updating from old version ──
+        // They already have data in localStorage — no dynamic code needed.
+        // Just ask them to save a backup file to continue.
+        function _showLegacyMigrationScreen() {
+            return new Promise(resolve => {
+                // Load legacy data into memory first
+                try { db = JSON.parse(localStorage.getItem('rbi_db') || '[]'); } catch(e) {}
+                try { household_db = JSON.parse(localStorage.getItem('rbi_hh_db') || '[]'); } catch(e) {}
+                try { settings = JSON.parse(localStorage.getItem('rbi_settings') || '{}'); } catch(e) {}
+                _kp_licensed = localStorage.getItem('kp_licensed') === 'true';
+
+                const count = db.length;
+                const brgy = settings.barangay || 'your barangay';
+
+                const over = document.createElement('div');
+                over.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#111827 100%);';
+                over.innerHTML = `
+                    <div style="position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(5,150,105,0.1) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                    <div style="background:rgba(30,41,59,0.8);backdrop-filter:blur(20px);padding:44px 40px;
+                        border-radius:16px;border:1px solid rgba(255,255,255,0.08);
+                        box-shadow:0 25px 50px rgba(0,0,0,0.3);width:440px;max-width:100%;
+                        text-align:center;position:relative;z-index:1;color:white;">
+                        <i class="fas fa-database" style="font-size:2.5rem;color:#34d399;margin-bottom:16px;display:block;"></i>
+                        <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;">
+                            Welcome Back!
+                        </h3>
+                        <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:4px;">
+                            We found your existing data:
+                        </p>
+                        <div style="background:rgba(5,150,105,0.12);border:1px solid rgba(52,211,153,0.2);
+                            border-radius:10px;padding:14px;margin-bottom:24px;">
+                            <div style="font-size:1.4rem;font-weight:800;color:#34d399;font-family:'Plus Jakarta Sans',sans-serif;">${count}</div>
+                            <div style="font-size:0.78rem;color:rgba(255,255,255,0.45);">residents · ${brgy}</div>
+                        </div>
+                        <p style="color:rgba(255,255,255,0.4);font-size:0.8rem;margin-bottom:24px;line-height:1.6;">
+                            Save your data to a file on your PC to continue.<br>
+                            Your password stays the same — no access code needed.
+                        </p>
+                        <button id="btn-save-backup"
+                            style="width:100%;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;
+                            padding:14px;color:white;font-family:'Plus Jakarta Sans',sans-serif;
+                            font-weight:700;font-size:1rem;cursor:pointer;transition:all 0.2s;
+                            box-shadow:0 4px 16px rgba(5,150,105,0.35);"
+                            onmouseover="this.style.transform='translateY(-1px)'"
+                            onmouseout="this.style.transform=''">
+                            <i class="fas fa-save me-2"></i>Save Backup & Continue
+                        </button>
+                        <div id="legacy-status" style="margin-top:14px;font-size:0.8rem;color:rgba(255,255,255,0.3);min-height:18px;"></div>
+                    </div>`;
+                document.body.appendChild(over);
+
+                const status = over.querySelector('#legacy-status');
+
+                over.querySelector('#btn-save-backup').onclick = async () => {
+                    status.textContent = 'Choose where to save...';
+                    try {
+                        _fileHandle = await window.showSaveFilePicker({
+                            suggestedName: 'RBIS_Data.json',
+                            types: [{ description: 'RBIS Data', accept: { 'application/json': ['.json'] } }]
+                        });
+                        await _saveHandleIDB(_fileHandle);
+                        await persistData();
+                        status.innerHTML = `<span style="color:#34d399;"><i class="fas fa-check-circle me-1"></i>Saved! Loading your data...</span>`;
+                        setTimeout(() => { over.remove(); resolve(); }, 800);
+                    } catch(e) { status.innerHTML = `<span style="color:rgba(255,255,255,0.3);">Cancelled — please try again.</span>`; }
+                };
+            });
+        }
+
+        // ── File picker (shown ONLY on first run or if handle lost) ──
+        function _showFilePicker() {
+            return new Promise(resolve => {
+                const over = document.createElement('div');
+                over.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#111827 100%);';
+                over.innerHTML = `
+                    <div style="position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(37,99,235,0.12) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                    <div style="background:rgba(30,41,59,0.8);backdrop-filter:blur(20px);padding:44px 40px;
+                        border-radius:16px;border:1px solid rgba(255,255,255,0.08);
+                        box-shadow:0 25px 50px rgba(0,0,0,0.3);width:420px;max-width:100%;
+                        text-align:center;position:relative;z-index:1;color:white;">
+                        <i class="fas fa-folder-open" style="font-size:2.5rem;color:#60a5fa;margin-bottom:16px;display:block;"></i>
+                        <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;">
+                            <i class="fas fa-shield-alt" style="color:#60a5fa;"></i> RBI SECURE
+                        </h3>
+                        <p style="color:rgba(255,255,255,0.45);font-size:0.85rem;margin-bottom:6px;">
+                            Link your <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:6px;color:#93c5fd;">RBIS_Data.json</code> file.
+                            This only happens <strong style="color:#e2e8f0;">once</strong> — it will be remembered.
+                        </p>
+                        <p style="color:rgba(255,255,255,0.3);font-size:0.78rem;margin-bottom:28px;">
+                            Open your existing file, or create a new one for first-time setup.
+                        </p>
+                        <button id="btn-open-file"
+                            style="width:100%;background:#2563eb;border:none;border-radius:10px;
+                            padding:12px;color:white;font-family:'Plus Jakarta Sans',sans-serif;
+                            font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.2s;margin-bottom:10px;"
+                            onmouseover="this.style.background='#1d4ed8';this.style.transform='translateY(-1px)'"
+                            onmouseout="this.style.background='#2563eb';this.style.transform=''">
+                            <i class="fas fa-folder-open me-2"></i>Open Existing File
+                        </button>
+                        <button id="btn-new-file"
+                            style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+                            border-radius:10px;padding:12px;color:rgba(255,255,255,0.6);
+                            font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;
+                            font-size:0.95rem;cursor:pointer;transition:all 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                            <i class="fas fa-plus-circle me-2"></i>Create New File
+                        </button>
+                        <div id="startup-status" style="margin-top:16px;font-size:0.8rem;color:rgba(255,255,255,0.3);min-height:20px;"></div>
+                    </div>`;
+                document.body.appendChild(over);
+
+                const status = over.querySelector('#startup-status');
+                const done = async (handle) => {
+                    _fileHandle = handle;
+                    await _saveHandleIDB(handle);
+                    status.innerHTML = `<span style="color:#34d399;"><i class="fas fa-check-circle me-1"></i><strong>${handle.name}</strong> linked — won't ask again</span>`;
+                    setTimeout(() => { over.remove(); resolve(); }, 900);
+                };
+
+                over.querySelector('#btn-open-file').onclick = async () => {
+                    status.textContent = 'Opening...';
+                    try {
+                        const [h] = await window.showOpenFilePicker({
+                            types: [{ description: 'RBIS Data', accept: { 'application/json': ['.json'] } }]
+                        });
+                        await done(h);
+                    } catch(e) { status.innerHTML = `<span style="color:rgba(255,255,255,0.3);">Cancelled — please try again.</span>`; }
+                };
+
+                over.querySelector('#btn-new-file').onclick = async () => {
+                    status.textContent = 'Creating...';
+                    try {
+                        const h = await window.showSaveFilePicker({
+                            suggestedName: 'RBIS_Data.json',
+                            types: [{ description: 'RBIS Data', accept: { 'application/json': ['.json'] } }]
+                        });
+                        await done(h);
+                    } catch(e) { status.innerHTML = `<span style="color:rgba(255,255,255,0.3);">Cancelled — please try again.</span>`; }
+                };
+            });
+        }
+
+        // ── Status ──
+        function showSaveStatus(ok) {
+            const el = document.getElementById('save-status');
+            if (!el) return;
+            el.textContent  = ok ? '\u{1F4BE} Saved' : '\u26A0 No file';
+            el.style.color  = ok ? '#34d399' : '#f87171';
+            el.style.opacity = '1';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+        }
+        function updateFileStatus() {
+            const el = document.getElementById('file-status');
+            if (!el) return;
+            el.textContent = _fileHandle ? ('\u{1F4C2} ' + _fileHandle.name) : '\u26A0 No file linked';
+            el.style.color = _fileHandle ? 'rgba(52,211,153,0.7)' : 'rgba(251,191,36,0.8)';
+        }
+
+        // ── Stubs ──
+        async function loadAllData()      { await initStorage(); }
+        function showRestorePickerModal() { return Promise.resolve(); }
+        async function showAutoBackups()  {
+            alert('Your data is saved in RBIS_Data.json on your PC.\nUse "Download Backup" to save a dated copy.');
+        }
+        const MAX_BACKUPS = 5;
+
+        // ═══════════════════════════════════════════════════════════
+        // GLOBAL STATE
+        // ═══════════════════════════════════════════════════════════
+        let db = [];
+        let household_db = [];
+        let settings = { user_password: null, barangay: '', province: '', municipality: '', secretary: '', region: '', captain: '', lguType: 'MUNICIPALITY' };
         let stagingValid = [], stagingInvalid = [], stagingDup = [];
         let printCatData = [], printCatPage = 0, printCatLabel = '';
         let residentPage = 0, residentPerPage = 10, residentFiltered = [];
@@ -589,7 +964,7 @@
         let deathPage = 0, deathPerPage = 10;
         let bulkFormBData = [], bulkFormBPage = 0, bulkFormBPerPage = 200;
 
-        // Debounce function (400ms delay)
+        // Debounce
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -599,28 +974,39 @@
             };
         }
 
-        const debouncedRenderList = debounce(() => { residentPage = 0; renderList(); }, 400);
-        const debouncedSearchMother = debounce((val) => searchMother(val), 400);
-        const debouncedFilterHHList = debounce(() => { hhPage = 0; renderHHList(); }, 400);
-        const debouncedSearchMemForHH = debounce(() => searchMemForHH(), 400);
+        // Auto-uppercase all text inputs on input
+        document.addEventListener('input', e => {
+            const el = e.target;
+            if ((el.tagName === 'INPUT' && !['password','file','date','number','email'].includes(el.type) && !el.classList.contains('no-caps')) ||
+                (el.tagName === 'TEXTAREA' && !el.classList.contains('no-caps'))) {
+                const pos = el.selectionStart;
+                el.value = el.value.toUpperCase();
+                try { el.setSelectionRange(pos, pos); } catch(e) {}
+            }
+        });
+        const debouncedSearchMother    = debounce((val) => searchMother(val), 400);
+        const debouncedFilterHHList    = debounce(() => { hhPage = 0; renderHHList(); }, 400);
+        const debouncedSearchMemForHH  = debounce(() => searchMemForHH(), 400);
 
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Load all data from IndexedDB instantly
+            await loadAllData();
+
             // Bypass security if returning from KP system
             if(sessionStorage.getItem('rbis_bypass_security') === 'true') {
                 sessionStorage.removeItem('rbis_bypass_security');
                 document.getElementById('security-overlay').classList.add('d-none');
                 document.getElementById('main-container').classList.remove('d-none');
                 document.querySelector('.sidebar').style.display = 'block';
-                updateServerTime(); renderList(); initKPCard();
+                updateServerTime(); renderList(); initKPCard(); updateFileStatus();
                 return;
             }
             if(settings.user_password) { document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); }
             else { document.getElementById('login-phase-1').classList.remove('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); }
-            updateServerTime(); renderList(); initKPCard();
+            updateServerTime(); renderList(); initKPCard(); updateFileStatus();
         });
 
         // --- SECURITY ---
-        function updateServerTime() { const now = new Date(); document.getElementById('server-time-display').innerText = `System Time: ${now.toLocaleString()}`; }
         function getWeekNumber(d) { d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7)); var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); return Math.ceil((((d - yearStart) / 86400000) + 1)/7); }
         function numToLetter(num) { let s = ''; while(num > 0) { let t = (num - 1) % 26; s = String.fromCharCode(97 + t) + s; num = Math.floor((num - 1) / 26); } return s; }
         function checkDynamic() {
@@ -635,19 +1021,30 @@
         function setCustomPassword() {
             const p1 = document.getElementById('new-custom-pass').value; const p2 = document.getElementById('confirm-custom-pass').value;
             if(!p1 || p1 !== p2) return alert("Passwords do not match or are empty.");
-            settings.user_password = p1; localStorage.setItem('rbi_settings', JSON.stringify(settings));
-            alert("Password set successfully!"); document.getElementById('security-overlay').classList.add('d-none');
+            settings.user_password = p1; saveDB();
+            alert("Password set successfully!");
+            document.getElementById('security-overlay').classList.add('d-none');
+            document.getElementById('main-container').classList.remove('d-none');
+            document.querySelector('.sidebar').style.display = 'block';
+            renderList(); updateReportUI(); initKPCard(); updateFileStatus();
         }
         function verifyCustomPassword() {
             const input = document.getElementById('input-custom-pass').value;
-            if(input === settings.user_password) { document.getElementById('security-overlay').classList.add('d-none'); document.getElementById('main-container').classList.remove('d-none'); document.querySelector('.sidebar').style.display = 'block'; }
-            else { alert("Incorrect Password."); }
+            if(input === settings.user_password) {
+                document.getElementById('security-overlay').classList.add('d-none');
+                document.getElementById('main-container').classList.remove('d-none');
+                document.querySelector('.sidebar').style.display = 'block';
+                renderList(); updateReportUI(); initKPCard(); updateFileStatus();
+            } else { alert("Incorrect Password."); }
         }
         function forgotPassword() { document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.add('d-none'); document.getElementById('login-phase-1').classList.remove('d-none'); alert("Please enter the Dynamic Access Code to reset your password."); }
         function logout() { document.getElementById('main-container').classList.add('d-none'); document.querySelector('.sidebar').style.display = 'none'; document.getElementById('security-overlay').classList.remove('d-none'); document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.add('d-none'); document.getElementById('login-phase-3').classList.remove('d-none'); document.getElementById('input-custom-pass').value = ''; }
 
         // --- CORE ---
-        function saveDB() { localStorage.setItem('rbi_db', JSON.stringify(db)); localStorage.setItem('rbi_hh_db', JSON.stringify(household_db)); updateReportUI(); }
+        async function saveDB() {
+            await persistData();
+            updateReportUI();
+        }
         function hideAll() { ['section-home','section-add','section-hh','section-import','section-settings','section-deaths','section-other'].forEach(id => { document.getElementById(id).classList.add('d-none'); }); document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active')); }
         function showHome() { hideAll(); document.getElementById('section-home').classList.remove('d-none'); residentPage = 0; renderList(); }
         function showAdd() { hideAll(); document.getElementById('section-add').classList.remove('d-none'); clearForm(); }
@@ -657,21 +1054,12 @@
 
         // --- KP SYSTEM ACCESS ---
         function initKPCard() {
-            const licensed = localStorage.getItem('kp_licensed') === 'true';
-            document.getElementById('kp-card-licensed').classList.toggle('d-none', !licensed);
-            document.getElementById('kp-card-unlicensed').classList.toggle('d-none', licensed);
+            document.getElementById('kp-card-licensed').classList.toggle('d-none', !_kp_licensed);
+            document.getElementById('kp-card-unlicensed').classList.toggle('d-none', _kp_licensed);
         }
         function openKPAccessModal() {
-            // Already licensed — go straight in, no code needed ever again
-            if(localStorage.getItem('kp_licensed') === 'true') {
-                window.location.href = 'kp.html';
-                return;
-            }
-            // Check if already authenticated this session
-            if(sessionStorage.getItem('kp_authenticated') === 'true') {
-                window.location.href = 'kp.html';
-                return;
-            }
+            if(_kp_licensed) { window.location.href = 'kp.html'; return; }
+            if(sessionStorage.getItem('kp_authenticated') === 'true') { window.location.href = 'kp.html'; return; }
             document.getElementById('kp-access-input').value = '';
             document.getElementById('kp-access-error').classList.add('d-none');
             const now = new Date();
@@ -691,12 +1079,13 @@
             const dayCode = ['SN','MN','TU','WD','TH','FR','ST'][d.getDay()];
             return `KP-${rA(S1)}${rA('1809')}-${numHash}-${xorVal}-${rA(S2)}${slotChar}${rA(S3)}-${dayCode}`;
         }
-        function verifyKPCode() {
+        async function verifyKPCode() {
             const input = document.getElementById('kp-access-input').value.trim();
             const code = generateKPCode();
             if(input === code) {
                 sessionStorage.setItem('kp_authenticated', 'true');
-                localStorage.setItem('kp_licensed', 'true');
+                _kp_licensed = true;  // Saved to file on next persistData call
+                await persistData();  // Write license to file immediately
                 initKPCard();
                 bootstrap.Modal.getInstance(document.getElementById('modal-kp-access')).hide();
                 window.location.href = 'kp.html';
@@ -1047,44 +1436,109 @@
         }
 
         function backupData() {
-            const kp_cases = JSON.parse(localStorage.getItem('kp_cases_v2')) || [];
-            const kp_lupon = JSON.parse(localStorage.getItem('kp_lupon')) || [];
-            const kp_incidents = JSON.parse(localStorage.getItem('kp_incidents')) || [];
-            const kp_licensed = localStorage.getItem('kp_licensed') === 'true';
-            const payload = { db, settings, household_db, kp_cases, kp_lupon, kp_incidents, kp_licensed };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload));
+            const payload = buildPayload();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
             const a = document.createElement('a');
             a.href = dataStr;
             const now = new Date();
-            const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-            a.download = `RBIS_KP_Backup_${stamp}.json`;
+            const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+            a.download = `RBIS_Backup_${stamp}.json`;
             a.click();
         }
+
 
         function restoreData(event) {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    if(imported.db) {
-                        db = imported.db;
-                        if(imported.settings) settings = imported.settings;
-                        if(imported.household_db) household_db = imported.household_db;
-                        // Restore KP data if present
-                        if(imported.kp_cases)     localStorage.setItem('kp_cases_v2', JSON.stringify(imported.kp_cases));
-                        if(imported.kp_lupon)     localStorage.setItem('kp_lupon', JSON.stringify(imported.kp_lupon));
-                        if(imported.kp_incidents) localStorage.setItem('kp_incidents', JSON.stringify(imported.kp_incidents));
-                        if(imported.kp_licensed)  localStorage.setItem('kp_licensed', 'true');
-                        saveDB();
-                        localStorage.setItem('rbi_settings', JSON.stringify(settings));
-                        const hasKP = imported.kp_cases || imported.kp_lupon || imported.kp_incidents;
-                        alert("Restored successfully!" + (hasKP ? "\n\nKP System data also restored." : ""));
-                        location.reload();
-                    }
-                } catch(err) { alert("Error reading file"); }
+                    if (!imported.db) { alert('Invalid backup file.'); return; }
+                    // Require dynamic code before restoring — prevents illegal use
+                    _showRestoreAuthModal(imported);
+                } catch(err) { alert('Error reading backup file.'); }
             };
             reader.readAsText(file);
+            // Reset input so same file can be picked again
+            event.target.value = '';
+        }
+
+        function _showRestoreAuthModal(importedData) {
+            const now = new Date();
+            const existing = document.getElementById('modal-restore-auth');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'modal-restore-auth';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:rgba(15,23,42,0.98);backdrop-filter:blur(20px);
+                    border:1px solid rgba(255,255,255,0.1);border-radius:16px;
+                    padding:36px 32px;width:400px;max-width:100%;text-align:center;color:white;
+                    box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+                    <i class="fas fa-shield-alt" style="font-size:2rem;color:#f59e0b;margin-bottom:14px;display:block;"></i>
+                    <h5 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;margin-bottom:6px;">Restore Verification</h5>
+                    <p style="color:rgba(255,255,255,0.4);font-size:0.8rem;margin-bottom:4px;">
+                        Enter the <strong style="color:rgba(255,255,255,0.7);">Dynamic Access Code</strong> to restore this backup.
+                    </p>
+                    <p style="color:rgba(255,255,255,0.25);font-size:0.72rem;margin-bottom:20px;">
+                        Backup contains <strong style="color:rgba(255,255,255,0.5);">${importedData.db.length}</strong> residents
+                        ${importedData.settings?.barangay ? '· ' + importedData.settings.barangay : ''}
+                    </p>
+                    <input type="password" id="restore-auth-input" placeholder="Enter Dynamic Access Code"
+                        style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+                        color:white;border-radius:10px;padding:11px 14px;font-size:0.9rem;
+                        text-align:center;letter-spacing:1px;margin-bottom:8px;outline:none;"
+                        onkeydown="if(event.key==='Enter')window._confirmRestoreAuth()">
+                    <div id="restore-auth-error" style="color:#f87171;font-size:0.78rem;min-height:18px;margin-bottom:12px;"></div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="window._confirmRestoreAuth()"
+                            style="flex:1;background:#d97706;border:none;border-radius:10px;padding:11px;
+                            color:white;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;cursor:pointer;">
+                            <i class="fas fa-unlock me-1"></i>Verify & Restore
+                        </button>
+                        <button onclick="document.getElementById('modal-restore-auth').remove();delete window._confirmRestoreAuth;"
+                            style="padding:11px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+                            border-radius:10px;color:rgba(255,255,255,0.5);cursor:pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                    <div style="margin-top:12px;font-size:0.7rem;color:rgba(255,255,255,0.2);">
+                        ${now.toLocaleString('en-PH')}
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            setTimeout(() => document.getElementById('restore-auth-input')?.focus(), 100);
+
+            window._confirmRestoreAuth = async () => {
+                const input = document.getElementById('restore-auth-input').value.trim();
+                const errEl = document.getElementById('restore-auth-error');
+
+                // Verify dynamic code
+                const n = new Date(); const month = n.getMonth(); const day = n.getDate(); const year = n.getFullYear();
+                const week = getWeekNumber(n) * 2; const dayLetter = numToLetter(day); const hours = n.getHours();
+                const ampm = hours >= 12 ? 'mp' : 'ma'; const hourLetter = String.fromCharCode(97 + hours);
+                const code = `RBI-${month}${day}${year}${week}${dayLetter}${ampm}${hourLetter}`;
+
+                if (input !== code) {
+                    errEl.textContent = 'Invalid access code. Please check and try again.';
+                    document.getElementById('restore-auth-input').value = '';
+                    document.getElementById('restore-auth-input').focus();
+                    return;
+                }
+
+                // Code verified — apply data but CLEAR the password so they must set a new one
+                applyPayload(importedData);
+                settings.user_password = null; // Force new password setup
+                await persistData();
+
+                modal.remove();
+                delete window._confirmRestoreAuth;
+
+                const hasKP = importedData.kp_cases?.length || importedData.kp_lupon?.length || importedData.kp_incidents?.length;
+                alert('✅ Backup verified and restored!' + (hasKP ? '\n\nKP System data also restored.' : '') + '\n\nPlease set a new password to continue.');
+                location.reload();
+            };
         }
 
         function previewImport() {
@@ -1121,7 +1575,7 @@
             const sec = document.getElementById('set-sec').value; const brgy = document.getElementById('set-brgy').value; const prov = document.getElementById('set-prov').value; const muni = document.getElementById('set-muni').value; const lguType = document.getElementById('set-lgu-type').value; const region = document.getElementById('set-region').value; const captain = document.getElementById('set-captain').value;
             if(!sec || !brgy) return alert("Please fill in Barangay and Secretary name.");
             settings.secretary = sec.toUpperCase(); settings.barangay = brgy.toUpperCase(); settings.province = prov ? prov.toUpperCase() : ''; settings.municipality = muni ? muni.toUpperCase() : ''; settings.lguType = lguType; settings.region = region ? region.toUpperCase() : ''; settings.captain = captain ? captain.toUpperCase() : '';
-            localStorage.setItem('rbi_settings', JSON.stringify(settings)); alert('Configuration Saved!');
+            saveDB(); alert('Configuration Saved!');
         }
     </script>
 </body>
