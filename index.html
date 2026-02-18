@@ -210,7 +210,6 @@
     </div>
 
     <div class="content" id="main-container">
-        <!-- DASHBOARD -->
         <div id="section-home">
             <div class="page-title">Dashboard Overview</div>
             <div class="page-subtitle">Real-time barangay population summary</div>
@@ -274,7 +273,6 @@
             </div>
         </div>
 
-        <!-- ADD RESIDENT -->
         <div id="section-add" class="d-none">
             <div class="page-title">Resident Information Sheet</div>
             <div class="page-subtitle">Add or edit an individual resident record</div>
@@ -331,7 +329,6 @@
             </div>
         </div>
 
-        <!-- HOUSEHOLDS -->
         <div id="section-hh" class="d-none">
             <div class="section-bar">
                 <div><div class="page-title">Household Management</div><div class="page-subtitle">Manage household groups and members</div></div>
@@ -375,7 +372,6 @@
             </div>
         </div>
 
-        <!-- DEATHS -->
         <div id="section-deaths" class="d-none">
              <div class="page-title" style="color:var(--accent-red);">Death Registry <span class="badge bg-danger rounded-pill" id="death-total" style="font-size:0.9rem;">0</span></div>
              <div class="page-subtitle">List of deceased barangay residents</div>
@@ -387,7 +383,6 @@
             </div>
         </div>
 
-        <!-- IMPORT/EXPORT -->
         <div id="section-import" class="d-none">
             <div class="page-title">Data Import / Export</div>
             <div class="page-subtitle">Backup, restore, or export data in BIMS format</div>
@@ -420,7 +415,6 @@
             </div>
         </div>
 
-        <!-- SETTINGS -->
         <div id="section-settings" class="d-none">
             <div class="page-title">System Configuration</div>
             <div class="page-subtitle">Configure barangay details and signatories</div>
@@ -436,13 +430,11 @@
             </div>
         </div>
 
-        <!-- OTHER SYSTEMS -->
         <div id="section-other" class="d-none">
             <div class="page-title">Other Systems</div>
             <div class="page-subtitle">Additional barangay management modules</div>
             <div class="row g-4 mt-2">
                 <div class="col-md-4" id="kp-card-wrapper">
-                    <!-- KP LICENSED CARD (shown when access code is set) -->
                     <div class="system-card d-none" id="kp-card-licensed" style="cursor:pointer;" onclick="openKPAccessModal()">
                         <div class="sale-badge" style="background:linear-gradient(135deg,#059669,#047857);"><i class="fas fa-check-circle me-1"></i> AVAILABLE</div>
                         <div class="system-img" style="background:linear-gradient(135deg,#0f2027,#1a3a2a,#0d2818);"><i class="fas fa-balance-scale" style="color:#34d399;"></i></div>
@@ -457,19 +449,15 @@
                             <button class="btn btn-success w-100 mt-3" onclick="event.stopPropagation(); openKPAccessModal()"><i class="fas fa-balance-scale me-1"></i> Open KP System</button>
                         </div>
                     </div>
-                    <!-- KP UNLICENSED CARD (shown when no access code yet) -->
                     <div class="system-card" id="kp-card-unlicensed">
                         <div class="sale-badge" style="background:linear-gradient(135deg,#d97706,#b45309);"><i class="fas fa-tag me-1"></i> FOR SALE</div>
                         <div class="system-img" style="background:linear-gradient(135deg,#1c1008,#2d1a04,#1c1008);">
-                            <!-- Price Tag -->
                             <div style="text-align:center; position:relative; z-index:2;">
                                 <div style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:12px 24px;box-shadow:0 6px 28px rgba(245,158,11,0.55);">
-                                    <!-- Sale ribbon -->
                                     <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
                                         <span style="font-size:0.55rem;color:rgba(0,0,0,0.45);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-decoration:line-through;">₱1,000</span>
                                         <span style="background:#dc2626;color:white;font-size:0.5rem;font-weight:800;padding:1px 6px;border-radius:100px;letter-spacing:0.5px;">30% OFF</span>
                                     </div>
-                                    <!-- New price -->
                                     <div style="font-size:2.2rem;font-weight:900;color:#1c1008;font-family:'Plus Jakarta Sans',sans-serif;line-height:1;">₱699</div>
                                     <div style="font-size:0.6rem;color:rgba(0,0,0,0.5);font-weight:600;margin-top:3px;letter-spacing:0.5px;">one-time access</div>
                                 </div>
@@ -483,7 +471,6 @@
                                 <span class="badge" style="background:rgba(5,150,105,0.1); color:var(--accent-green);">Mediation</span>
                                 <span class="badge" style="background:rgba(124,58,237,0.1); color:var(--accent-purple);">Settlement</span>
                             </div>
-                            <!-- Avail Info Box -->
                             <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(180,83,9,0.08));border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px;margin-bottom:12px;">
                                 <div style="font-size:0.72rem;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;"><i class="fas fa-info-circle me-1"></i> How to Avail KPS</div>
                                 <p style="font-size:0.78rem;color:var(--text-secondary);margin:0 0 8px;">Message <strong style="color:var(--text-primary);">Sec Jerick</strong> on Facebook to get your access code:</p>
@@ -497,7 +484,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- KP ACCESS CODE MODAL -->
                 <div class="modal fade" id="modal-kp-access" tabindex="-1" data-bs-backdrop="static">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;">
@@ -525,7 +511,6 @@
         </div>
     </div>
 
-    <!-- MODALS -->
     <div class="modal fade" id="modal-new-hh" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Create New Household</h5></div><div class="modal-body"><label>Household Name (Family Name)</label><input type="text" id="new-hh-name" class="form-control text-uppercase mb-2"><label>Purok</label><input type="text" id="new-hh-purok" class="form-control text-uppercase mb-2"><label>House Number</label><input type="text" id="new-hh-num" class="form-control text-uppercase"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-primary" onclick="createHH()">Create</button></div></div></div></div>
 
     <div class="modal fade" id="modal-edit-hh" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Edit Household Details</h5></div><div class="modal-body"><input type="hidden" id="edit-hh-old-name"><label>Household Name (Family Name)</label><input type="text" id="edit-hh-name" class="form-control text-uppercase mb-2"><label>Purok</label><input type="text" id="edit-hh-purok" class="form-control text-uppercase mb-2"><label>House Number</label><input type="text" id="edit-hh-num" class="form-control text-uppercase"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-success" onclick="saveEditedHH()">Save Changes</button></div></div></div></div>
@@ -536,7 +521,6 @@
 
     <div class="modal" id="modal-import" tabindex="-1" style="background:rgba(0,0,0,0.5);"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5>Import Preview</h5></div><div class="modal-body"><ul class="nav nav-tabs mb-3"><li class="nav-item"><a class="nav-link active" onclick="showImportTab('valid')" href="#">Valid (<span id="count-valid">0</span>)</a></li><li class="nav-item"><a class="nav-link text-warning" onclick="showImportTab('dup')" href="#">Duplicates (<span id="count-dup">0</span>)</a></li><li class="nav-item"><a class="nav-link text-danger" onclick="showImportTab('invalid')" href="#">Invalid (<span id="count-invalid">0</span>)</a></li></ul><div id="view-valid" class="import-view" style="max-height:300px; overflow-y:auto;"><p class="text-success">Ready to import <span id="lbl-valid-count">0</span> records.</p></div><div id="view-dup" class="import-view d-none" style="max-height:300px; overflow-y:auto;"><div id="list-dup" class="text-warning small"></div></div><div id="view-invalid" class="import-view d-none" style="max-height:300px; overflow-y:auto;"><div id="list-invalid" class="text-danger small"></div></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button><button class="btn btn-success" id="btn-commit-import" onclick="commitImport()" disabled>Import Valid Records</button></div></div></div></div>
 
-    <!-- AGE RANGE PRINT MODAL -->
     <div class="modal fade" id="modal-age-range" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-sliders-h me-2" style="color:var(--accent-blue);"></i>Print by Age Range</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -553,7 +537,6 @@
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="printAgeRange()"><i class="fas fa-print me-1"></i> Print</button></div>
     </div></div></div>
 
-    <!-- PRINT CATEGORY MODAL -->
     <div class="modal fade" id="modal-print-category" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;" id="print-cat-title"><i class="fas fa-print me-2" style="color:var(--accent-blue);"></i>Print Records</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -566,7 +549,6 @@
         <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-primary" onclick="executePrintCategory()"><i class="fas fa-print me-1"></i> Print This Page (100 max)</button></div>
     </div></div></div>
 
-    <!-- BULK FORM B MODAL -->
     <div class="modal fade" id="modal-bulk-formb" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
         <div class="modal-header"><h5 style="font-family:'Plus Jakarta Sans'; font-weight:700;"><i class="fas fa-file-alt me-2" style="color:var(--accent-green);"></i>Bulk Print RBI Form B</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -650,9 +632,9 @@
 
         // ── Apply payload to memory ──
         function applyPayload(p) {
-            if (p.db)           db           = p.db;
+            if (p.db)            db            = p.db;
             if (p.household_db) household_db = p.household_db;
-            if (p.settings)     settings     = p.settings;
+            if (p.settings)      settings      = p.settings;
             _kp_licensed = p.kp_licensed === true;
             if (p.kp_cases)     localStorage.setItem('kp_cases_v2', JSON.stringify(p.kp_cases));
             if (p.kp_lupon)     localStorage.setItem('kp_lupon',    JSON.stringify(p.kp_lupon));
@@ -909,7 +891,58 @@
                         const [h] = await window.showOpenFilePicker({
                             types: [{ description: 'RBIS Data', accept: { 'application/json': ['.json'] } }]
                         });
-                        await done(h);
+
+                        // Read file to check for data
+                        const f = await h.getFile();
+                        const text = await f.text();
+                        let parsed = null;
+                        try { parsed = JSON.parse(text); } catch(e) {}
+
+                        // If DB exists, require access code
+                        if (parsed && parsed.db && parsed.db.length > 0) {
+                            over.innerHTML = `
+                                <div style="position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(245,158,11,0.15) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                                <div style="background:rgba(30,41,59,0.95);backdrop-filter:blur(20px);padding:44px 40px;
+                                    border-radius:16px;border:1px solid rgba(255,255,255,0.08);
+                                    box-shadow:0 25px 50px rgba(0,0,0,0.5);width:420px;max-width:100%;
+                                    text-align:center;position:relative;z-index:1;color:white;">
+                                    <i class="fas fa-file-shield" style="font-size:2.5rem;color:#f59e0b;margin-bottom:16px;display:block;"></i>
+                                    <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;">
+                                        Security Verification
+                                    </h3>
+                                    <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:20px;">
+                                        You are linking an existing database (<strong style="color:white;">${parsed.db.length}</strong> records).<br>
+                                        Please enter the Dynamic Access Code to authorize.
+                                    </p>
+                                    <input type="password" id="auth-existing-code" class="form-control mb-3 text-center fw-bold" placeholder="Enter Access Code" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:white;letter-spacing:1px;" onkeydown="if(event.key==='Enter')document.getElementById('btn-verify-open').click()">
+                                    <button id="btn-verify-open" style="width:100%;background:#d97706;border:none;border-radius:10px;padding:12px;color:white;font-weight:700;margin-bottom:10px;cursor:pointer;"><i class="fas fa-unlock me-2"></i>Verify & Open</button>
+                                    <button id="btn-cancel-open" style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px;color:rgba(255,255,255,0.5);font-weight:600;cursor:pointer;">Cancel</button>
+                                    <div id="auth-status" style="margin-top:10px;font-size:0.8rem;color:#f87171;min-height:20px;"></div>
+                                </div>
+                            `;
+
+                            document.getElementById('btn-verify-open').onclick = async () => {
+                                const input = document.getElementById('auth-existing-code').value.trim();
+                                const n = new Date(); const month = n.getMonth(); const day = n.getDate(); const year = n.getFullYear();
+                                const week = getWeekNumber(n) * 2; const dayLetter = numToLetter(day); const hours = n.getHours();
+                                const ampm = hours >= 12 ? 'mp' : 'ma'; const hourLetter = String.fromCharCode(97 + hours);
+                                const expectedCode = `RBI-${month}${day}${year}${week}${dayLetter}${ampm}${hourLetter}`;
+
+                                if (input === expectedCode) {
+                                    document.getElementById('auth-status').innerHTML = `<span style="color:#34d399;">Verified! Linking file...</span>`;
+                                    setTimeout(() => done(h), 500);
+                                } else {
+                                    document.getElementById('auth-status').textContent = 'Invalid Access Code. Please try again.';
+                                }
+                            };
+
+                            document.getElementById('btn-cancel-open').onclick = () => {
+                                location.reload();
+                            };
+                        } else {
+                            // Empty or new file, no security needed
+                            await done(h);
+                        }
                     } catch(e) { status.innerHTML = `<span style="color:rgba(255,255,255,0.3);">Cancelled — please try again.</span>`; }
                 };
 
@@ -977,7 +1010,7 @@
         // Auto-uppercase all text inputs on input (skip search fields)
         document.addEventListener('input', e => {
             const el = e.target;
-            const skipIds = ['search-input', 'hh-search-input', 'mother-search-input'];
+            const skipIds = ['search-input', 'hh-search-input', 'mother-search-input', 'restore-auth-input', 'auth-existing-code', 'dynamic-code'];
             if (skipIds.includes(el.id)) return;
             if ((el.tagName === 'INPUT' && !['password','file','date','number','email'].includes(el.type) && !el.classList.contains('no-caps')) ||
                 (el.tagName === 'TEXTAREA' && !el.classList.contains('no-caps'))) {
@@ -1009,15 +1042,30 @@
             updateServerTime(); renderList(); initKPCard(); updateFileStatus();
         });
 
+        function updateServerTime() {
+            const display = document.getElementById('server-time-display');
+            if(display) {
+                // Run once immediately, then update every second
+                display.innerText = "System Time: " + new Date().toLocaleString('en-PH');
+                setInterval(() => {
+                    display.innerText = "System Time: " + new Date().toLocaleString('en-PH');
+                }, 1000);
+            }
+        }
+
         // --- SECURITY ---
         function getWeekNumber(d) { d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7)); var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); return Math.ceil((((d - yearStart) / 86400000) + 1)/7); }
         function numToLetter(num) { let s = ''; while(num > 0) { let t = (num - 1) % 26; s = String.fromCharCode(97 + t) + s; num = Math.floor((num - 1) / 26); } return s; }
+        
         function checkDynamic() {
-            const input = document.getElementById('dynamic-code').value;
+            const input = document.getElementById('dynamic-code').value.trim();
             const now = new Date(); const month = now.getMonth(); const day = now.getDate(); const year = now.getFullYear();
             const week = getWeekNumber(now) * 2; const dayLetter = numToLetter(day); const hours = now.getHours();
             const ampm = hours >= 12 ? 'mp' : 'ma'; const hourLetter = String.fromCharCode(97 + hours);
             const code = `RBI-${month}${day}${year}${week}${dayLetter}${ampm}${hourLetter}`;
+            
+            console.log("EXPECTED CODE:", code); // Debugging help
+            
             if(input === code) { document.getElementById('login-phase-1').classList.add('d-none'); document.getElementById('login-phase-2').classList.remove('d-none'); }
             else { alert("Incorrect Access Code."); }
         }
