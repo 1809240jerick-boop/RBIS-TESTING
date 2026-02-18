@@ -259,7 +259,7 @@
                 <div class="col-md-2 col-6 mt-2"><div class="mini-stat" onclick="printStatCategory('4ps')" title="Print 4P's Beneficiaries" style="border-left:3px solid #e67e22;"><div class="mini-label" style="color:#e67e22;"><i class="fas fa-hand-holding-heart me-1"></i>4P's</div><div class="mini-value" id="rep-4ps" style="color:#e67e22;">0</div></div></div>
             </div>
             <div class="section-bar">
-                <input type="text" id="search-input" class="form-control" style="max-width:400px;" placeholder="Search resident name..." onkeyup="debouncedRenderList()">
+                <input type="text" id="search-input" class="form-control" style="max-width:400px;" placeholder="Search resident name..." oninput="debouncedRenderList()">
                 <div class="d-flex gap-2 flex-wrap">
                     <button class="btn btn-outline-primary" onclick="showAgeRangeModal()"><i class="fas fa-sliders-h me-1"></i> Print by Age Range</button>
                     <button class="btn btn-outline-success" onclick="showBulkFormBModal()"><i class="fas fa-file-alt me-1"></i> Bulk Print Form B</button>
@@ -296,7 +296,7 @@
                     <div class="col-md-4"><label>PhilSys ID</label><input type="text" id="f-philsys" class="form-control"></div>
                     <div class="col-md-12 position-relative">
                         <label class="fw-bold">Mother's Maiden Name</label>
-                        <input type="text" class="form-control mb-1" id="mother-search-input" placeholder="Type to search mother from DB..." onkeyup="debouncedSearchMother(this.value)">
+                        <input type="text" class="form-control mb-1" id="mother-search-input" placeholder="Type to search mother from DB..." oninput="debouncedSearchMother(this.value)">
                         <div id="mother-search-results" class="search-results d-none"></div>
                         <div class="row g-2 mt-1">
                             <div class="col-4"><input type="text" id="f-m-last" class="form-control form-control-sm text-uppercase" placeholder="Mother's Last Name"></div>
@@ -365,7 +365,7 @@
                 </div>
             </div>
             <div id="hh-list-container">
-                <input type="text" id="hh-search-input" class="form-control mb-3" style="max-width:400px;" placeholder="Search Household..." onkeyup="debouncedFilterHHList()">
+                <input type="text" id="hh-search-input" class="form-control mb-3" style="max-width:400px;" placeholder="Search Household..." oninput="debouncedFilterHHList()">
                 <ul class="list-group" id="hh-list"></ul>
                 <div class="pagination-controls" id="hh-pagination">
                     <button class="btn btn-outline-secondary" id="btn-hh-prev" onclick="hhPrevPage()" disabled><i class="fas fa-chevron-left"></i> Previous</button>
@@ -974,9 +974,11 @@
             };
         }
 
-        // Auto-uppercase all text inputs on input
+        // Auto-uppercase all text inputs on input (skip search fields)
         document.addEventListener('input', e => {
             const el = e.target;
+            const skipIds = ['search-input', 'hh-search-input', 'mother-search-input'];
+            if (skipIds.includes(el.id)) return;
             if ((el.tagName === 'INPUT' && !['password','file','date','number','email'].includes(el.type) && !el.classList.contains('no-caps')) ||
                 (el.tagName === 'TEXTAREA' && !el.classList.contains('no-caps'))) {
                 const pos = el.selectionStart;
@@ -984,6 +986,7 @@
                 try { el.setSelectionRange(pos, pos); } catch(e) {}
             }
         });
+        const debouncedRenderList      = debounce(() => { residentPage = 0; renderList(); }, 200);
         const debouncedSearchMother    = debounce((val) => searchMother(val), 400);
         const debouncedFilterHHList    = debounce(() => { hhPage = 0; renderHHList(); }, 400);
         const debouncedSearchMemForHH  = debounce(() => searchMemForHH(), 400);
