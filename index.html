@@ -750,33 +750,101 @@
             const saved = await _idbGet('payload');
             if (saved && saved.db) {
                 applyPayload(saved);
-            } else {
-                // First run: migrate legacy localStorage data if any
-                const old = localStorage.getItem('rbi_db');
-                if (old) {
-                    try { db = JSON.parse(old); } catch(e) {}
-                    try { household_db = JSON.parse(localStorage.getItem('rbi_hh_db') || '[]'); } catch(e) {}
-                    try { settings = JSON.parse(localStorage.getItem('rbi_settings') || '{}'); } catch(e) {}
-                    _kp_licensed = localStorage.getItem('kp_licensed') === 'true';
-                    // KP data already in localStorage — persistData will bundle it via buildPayload
-                    await persistData();
-                    // Show a non-blocking toast instead of alert
-                    const toast = document.createElement('div');
-                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#059669;color:white;padding:14px 22px;border-radius:10px;font-weight:600;font-size:0.9rem;box-shadow:0 4px 16px rgba(0,0,0,0.2);animation:fadeUp 0.3s ease;';
-                    toast.innerHTML = '✅ Existing data loaded successfully!';
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 3500);
-                }
+                return;
             }
 
-            // Try to silently reconnect optional file handle (no UI shown)
-            const fh = await _loadHandleIDB();
-            if (fh) {
-                try {
-                    const perm = await fh.queryPermission({ mode: 'readwrite' });
-                    if (perm === 'granted') _fileHandle = fh;
-                } catch(e) {}
+            // Check localStorage (same origin legacy data)
+            const old = localStorage.getItem('rbi_db');
+            if (old) {
+                try { db = JSON.parse(old); } catch(e) {}
+                try { household_db = JSON.parse(localStorage.getItem('rbi_hh_db') || '[]'); } catch(e) {}
+                try { settings = JSON.parse(localStorage.getItem('rbi_settings') || '{}'); } catch(e) {}
+                _kp_licensed = localStorage.getItem('kp_licensed') === 'true';
+                await persistData();
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#059669;color:white;padding:14px 22px;border-radius:10px;font-weight:600;font-size:0.9rem;box-shadow:0 4px 16px rgba(0,0,0,0.2);';
+                toast.innerHTML = '✅ Existing data loaded successfully!';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3500);
+                return;
             }
+
+            // No data found anywhere — show first-run screen
+            await _showFirstRunScreen();
+        }
+
+        function _showFirstRunScreen() {
+            return new Promise(resolve => {
+                const over = document.createElement('div');
+                over.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#111827 100%);';
+                over.innerHTML = `
+                    <div style="position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(37,99,235,0.12) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;"></div>
+                    <div style="background:rgba(30,41,59,0.85);backdrop-filter:blur(20px);padding:44px 40px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px rgba(0,0,0,0.3);width:460px;max-width:100%;text-align:center;position:relative;z-index:1;color:white;">
+                        <i class="fas fa-shield-alt" style="font-size:2.5rem;color:#60a5fa;margin-bottom:16px;display:block;"></i>
+                        <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.5px;margin-bottom:8px;">RBI System</h3>
+                        <p style="color:rgba(255,255,255,0.4);font-size:0.85rem;margin-bottom:32px;">No saved data found on this browser.<br>Start fresh or restore from a backup file.</p>
+
+                        <button id="btn-fresh-start" style="width:100%;background:#2563eb;border:none;border-radius:10px;padding:13px;color:white;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;margin-bottom:12px;transition:all 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                            <i class="fas fa-play me-2"></i>Start Fresh
+                        </button>
+
+                        <div style="position:relative;margin-bottom:12px;">
+                            <div style="border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;"></div>
+                            <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:rgba(30,41,59,0.85);padding:0 12px;font-size:0.75rem;color:rgba(255,255,255,0.3);">OR</span>
+                        </div>
+
+                        <button id="btn-restore-backup" style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:13px;color:rgba(255,255,255,0.8);font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.07)'">
+                            <i class="fas fa-upload me-2"></i>Restore from Backup File
+                        </button>
+                        <input type="file" id="backup-file-input" accept=".json" style="display:none;">
+
+                        <div id="first-run-status" style="margin-top:16px;font-size:0.8rem;color:rgba(255,255,255,0.4);min-height:18px;"></div>
+                    </div>`;
+                document.body.appendChild(over);
+
+                const status = over.querySelector('#first-run-status');
+
+                over.querySelector('#btn-fresh-start').onclick = () => {
+                    over.remove();
+                    resolve();
+                };
+
+                over.querySelector('#btn-restore-backup').onclick = () => {
+                    over.querySelector('#backup-file-input').click();
+                };
+
+                over.querySelector('#backup-file-input').onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    status.innerHTML = '<span style="color:#60a5fa;">Reading file...</span>';
+                    try {
+                        const text = await file.text();
+                        const data = JSON.parse(text);
+                        if (!data.db) throw new Error('Invalid backup file');
+
+                        // Verify dynamic code before restoring
+                        const now = new Date();
+                        const week = getWeekNumber(now) * 2;
+                        const dayLetter = numToLetter(now.getDate());
+                        const ampm = now.getHours() >= 12 ? 'mp' : 'ma';
+                        const hourLetter = String.fromCharCode(97 + now.getHours());
+                        const code = `RBI-${now.getMonth()}${now.getDate()}${now.getFullYear()}${week}${dayLetter}${ampm}${hourLetter}`;
+
+                        const entered = prompt(`Backup contains ${data.db.length} residents.\nEnter today's Access Code to restore:`);
+                        if (entered !== code) {
+                            status.innerHTML = '<span style="color:#f87171;">❌ Incorrect access code. Restore cancelled.</span>';
+                            return;
+                        }
+
+                        applyPayload(data);
+                        await persistData();
+                        status.innerHTML = '<span style="color:#34d399;">✅ Restored successfully!</span>';
+                        setTimeout(() => { over.remove(); resolve(); }, 1200);
+                    } catch(err) {
+                        status.innerHTML = `<span style="color:#f87171;">❌ ${err.message || 'Failed to read file'}</span>`;
+                    }
+                };
+            });
         }
 
         // Stubs
